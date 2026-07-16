@@ -1,137 +1,63 @@
-# DJ Helper — installation depuis zéro
+# DJ Helper
 
-Application de gestion de bibliothèque musicale pour DJ (Traktor).
-Fonctionne sur **Windows** et **macOS**. Toute la logique est en Python ;
-l'interface s'affiche dans une fenêtre native (pywebview).
+*[Version française](README.fr.md)*
 
----
-
-## Installation simple (application prête à l'emploi)
-
-Télécharge la dernière version sur la page **Releases** du dépôt GitHub :
-`DJHelper-windows.zip` ou `DJHelper-macos.zip`. **Tout est inclus** (ffmpeg et
-fpcalc sont embarqués — si tu les as déjà sur ta machine, tes versions sont
-utilisées en priorité et les copies embarquées sont simplement ignorées).
-Dézippe, puis :
-
-- **Windows** : ouvre le dossier et lance `DJ Helper.exe`. Au premier lancement,
-  SmartScreen peut afficher un avertissement (application non signée) :
-  clique « Informations complémentaires » → « Exécuter quand même ».
-- **macOS** : glisse `DJ Helper.app` dans Applications. Au premier lancement,
-  **clic droit → Ouvrir** (avertissement développeur non identifié, une seule fois).
-
-Il ne reste qu'à configurer l'app (carte Configuration de l'accueil : dossier
-audio, racine de la clé, clé AcoustID).
-
-> Licences : DJ Helper est distribué sous **GPL v3** (voir `LICENSE`). Les
-> binaires embarqués ffmpeg (build GPL) et fpcalc/Chromaprint conservent leurs
-> licences respectives.
+Music library manager for DJs (Traktor): tags, duplicates (by name and by
+audio fingerprint), file integrity, AcoustID enrichment, backups and USB
+stick synchronization. Windows and macOS.
 
 ---
 
-## Installation sur Windows (10 ou 11)
+## Installation (users)
 
-### 1. Installer Python
-1. Télécharge Python 3.12 sur https://www.python.org/downloads/windows/
-2. Lance l'installeur. **Coche impérativement « Add python.exe to PATH »**
-   en bas de la première fenêtre, puis Install Now.
-3. Vérifie dans un terminal (touche Windows → tape `cmd` → Entrée) :
-   ```
-   python --version
-   ```
-   Doit afficher `Python 3.12.x`.
+1. Go to the **[Releases](../../releases)** page and download
+   `DJHelper-windows.zip` or `DJHelper-macos.zip`. **Everything is included**
+   (ffmpeg and fpcalc are bundled — if you already have them installed, your
+   versions take priority and the bundled copies are simply ignored).
+2. Unzip, then:
+   - **Windows**: run `DJ Helper.exe`. If SmartScreen shows a warning:
+     "More info" → "Run anyway" (unsigned app).
+   - **macOS**: drag `DJ Helper.app` to Applications, then **right-click →
+     Open** on first launch (unidentified developer warning, one time only).
+3. Configure from the Home tab: audio folder, USB stick root, and an AcoustID
+   **application** key (free: https://acoustid.org/new-application).
 
-### 2. Installer les dépendances Python
-Dans le même terminal :
-```
-python -m pip install pywebview mutagen rapidfuzz numpy certifi
-```
-
-### 3. Installer ffmpeg et fpcalc (outils audio)
-Deux options — la plus simple est le gestionnaire `winget`, inclus dans Windows :
-```
-winget install Gyan.FFmpeg
-winget install AcoustID.Chromaprint
-```
-Ferme puis rouvre le terminal après l'installation (pour recharger le PATH).
-Vérifie :
-```
-ffmpeg -version
-fpcalc -version
-```
-
-Si `winget` n'est pas disponible : télécharge les zips sur
-https://www.gyan.dev/ffmpeg/builds/ (ffmpeg) et
-https://acoustid.org/chromaprint (fpcalc), puis pose `ffmpeg.exe` et
-`fpcalc.exe` **directement dans le dossier DJHelperWeb** — l'app les trouve
-aussi à cet emplacement, sans toucher au PATH.
-
-### 4. Récupérer et lancer DJ Helper
-1. Dézippe `DJHelperWeb.zip` où tu veux (ex. `C:\DJHelper`). **Évite un dossier
-   synchronisé** (OneDrive, ProtonDrive…) : la synchro peut servir des fichiers
-   périmés.
-2. Dans le terminal :
-   ```
-   cd C:\DJHelper\DJHelperWeb
-   python main.py
-   ```
-3. La fenêtre s'ouvre. Windows peut demander l'autorisation réseau au premier
-   lancement (fonctions AcoustID) : accepte.
-
-### 5. Configurer l'app (premier lancement)
-Dans l'onglet **Accueil**, carte Configuration :
-1. **Dossier audio** : ta clé USB, ex. `E:\TRACK BASE`.
-2. **Racine de la clé** : la racine du volume, ex. `E:\` (là où vit `collection.nml`).
-3. **Clé AcoustID** : crée une clé d'**application** (pas une clé de compte)
-   sur https://acoustid.org/new-application et colle-la.
-4. Vérifie que les badges ffmpeg / fpcalc sont verts dans le statut en bas à gauche.
+That's it. Nothing else to install.
 
 ---
 
-## Installation sur macOS
+## Running from source (developers)
 
-### 1. Python et Homebrew
+Requires Python 3.12, ffmpeg and fpcalc (Chromaprint).
+
 ```bash
-# Homebrew si absent : https://brew.sh
-brew install python@3.12 ffmpeg chromaprint
-```
-(ou Python depuis python.org — dans ce cas ffmpeg/chromaprint via Homebrew quand même)
-
-### 2. Dépendances Python
-```bash
-pip3.12 install pywebview mutagen rapidfuzz numpy certifi
-```
-
-### 3. Lancer
-```bash
-cd /chemin/vers/DJHelperWeb
-python3.12 main.py
+git clone https://github.com/hfreryr/DJ-HELPER.git && cd DJ-HELPER
+pip install -r requirements.txt
+# audio tools:
+#   macOS   : brew install ffmpeg chromaprint
+#   Windows : winget install Gyan.FFmpeg && winget install AcoustID.Chromaprint
+#             (or drop ffmpeg.exe / fpcalc.exe into the project folder)
+python main.py
 ```
 
-### 4. Configurer
-Comme sur Windows (Dossier audio = `/Volumes/TACLE/TRACK BASE`,
-Racine = `/Volumes/TACLE`, clé AcoustID d'application).
+Windows: install Python from python.org and make sure to check **"Add
+python.exe to PATH"**. Avoid working from a cloud-synced folder (OneDrive,
+ProtonDrive…): sync can serve stale files.
 
----
+## Notes
 
-## Notes importantes
+- App caches live in `~/.djhelper/` (they survive updates).
+- Playlist features (playlist-aware duplicate resolution, structure backup,
+  M3U vault, tracks-without-playlist) read Traktor's `collection.nml` from the
+  USB stick. Without Traktor, all file-level features (tags, audio duplicates,
+  integrity) remain fully usable.
+- Licensing: DJ Helper is **GPL v3** (see `LICENSE`). Bundled binaries —
+  ffmpeg (GPL build) and fpcalc/Chromaprint — keep their respective licenses.
 
-- **Dossiers synchronisés** (ProtonDrive, OneDrive, iCloud…) : ne lance jamais
-  l'app depuis un dossier en cours de synchro. Symptôme vécu : les fichiers
-  affichés à jour ne le sont pas, les corrections semblent sans effet.
-- **Caches** : l'app stocke ses caches dans `~/.djhelper/` (macOS) ou
-  `C:\Users\<toi>\.djhelper\` (Windows). Ils survivent aux mises à jour de l'app.
-- **Clé AcoustID** : c'est une clé d'application (« Register a new application »
-  sur acoustid.org), pas la clé API de ton compte utilisateur.
-- **collection.nml** : les fonctions playlists (doublons, structure, M3U,
-  hors-playlist) lisent le `collection.nml` de Traktor sur la clé. Sans Traktor,
-  les fonctions fichiers (tags, doublons par son, intégrité) restent utilisables.
+## Troubleshooting
 
-## Dépannage rapide
-
-| Symptôme | Cause probable | Solution |
-|---|---|---|
-| `python` introuvable (Windows) | PATH non coché à l'install | Réinstalle Python en cochant « Add to PATH » |
-| Badge fpcalc/ffmpeg rouge | Outils absents ou PATH non rechargé | Rouvre le terminal ; ou pose les .exe dans le dossier de l'app |
-| Erreur SSL sur AcoustID | Certificats Python absents | L'app embarque `cacert.pem` — vérifie qu'il est bien à côté de `core.py` |
-| L'app semble ignorer une mise à jour | Dossier synchronisé périmé, ou cache `__pycache__` | Sors le dossier de la synchro ; supprime `__pycache__` ; relance |
+| Symptom | Fix |
+|---|---|
+| ffmpeg/fpcalc badge red (running from source) | Reopen the terminal; or drop the binaries into the project folder |
+| AcoustID SSL error (running from source) | Check that `cacert.pem` sits next to `core.py` |
+| An update seems to have no effect | Stale synced folder or `__pycache__`: move the project out of sync, delete `__pycache__` |
