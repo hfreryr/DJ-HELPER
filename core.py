@@ -1247,6 +1247,7 @@ class Core:
         self.music_folder = ""
         self.usb_root = ""
         self.acoustid_key = ""
+        self.lang = "en"
         self.tracks = []
         self._scan_cache = {}
         self._acoustid_cache = {}
@@ -1275,6 +1276,7 @@ class Core:
             self.music_folder = (data.get("music_folder") or "").strip()
             self.usb_root = (data.get("usb_root") or "").strip()
             self.acoustid_key = (data.get("acoustid_key") or "").strip()
+            self.lang = (data.get("lang") or "en").strip() or "en"
         except Exception:
             pass
 
@@ -1286,9 +1288,15 @@ class Core:
             with open(p, "w", encoding="utf-8") as f:
                 json.dump({"music_folder": self.music_folder,
                            "usb_root": self.usb_root,
-                           "acoustid_key": self.acoustid_key}, f, ensure_ascii=False, indent=2)
+                           "acoustid_key": self.acoustid_key,
+                           "lang": getattr(self, "lang", "en")}, f, ensure_ascii=False, indent=2)
         except Exception:
             pass
+
+    def set_lang(self, lang):
+        self.lang = "fr" if (lang or "").strip().lower() == "fr" else "en"
+        self._save_config()
+        return {"ok": True, "lang": self.lang}
 
     def set_acoustid_key(self, key):
         self.acoustid_key = (key or "").strip()
@@ -1693,6 +1701,7 @@ class Core:
             "usb_root": self.usb_root,
             "usb_configured": bool(self.usb_root and os.path.isdir(self.usb_root)),
             "acoustid_key": self.acoustid_key,
+            "lang": getattr(self, "lang", "en"),
             "fpcalc": find_fpcalc() or "",
             "ffmpeg": find_ffmpeg() or "",
             "free": free,

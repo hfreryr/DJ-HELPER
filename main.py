@@ -207,6 +207,9 @@ class Api:
     def set_acoustid_key(self, key):
         return self.core.set_acoustid_key(key)
 
+    def set_lang(self, lang):
+        return self.core.set_lang(lang)
+
     def acoustid_begin(self):
         return self.core.acoustid_begin()
 

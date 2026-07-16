@@ -1398,8 +1398,20 @@ document.addEventListener('click', (e) => {
 setInterval(() => { if (API) refreshStatus(); }, 5000);
 
 // ---------- démarrage : attendre l'API pywebview ----------
-function boot(){
+async function boot(){
   API = window.pywebview.api;
+  // langue : lue depuis la config AVANT tout rendu (défaut anglais)
+  try {
+    const st = await API.get_state();
+    LANG = (st && st.lang === 'fr') ? 'fr' : 'en';
+  } catch (e){ LANG = 'en'; }
+  translateDom();
+  startI18nObserver();
+  const fr = $('btn-lang-fr'), en = $('btn-lang-en');
+  fr.classList.toggle('active', LANG === 'fr');
+  en.classList.toggle('active', LANG === 'en');
+  fr.addEventListener('click', async () => { await API.set_lang('fr'); location.reload(); });
+  en.addEventListener('click', async () => { await API.set_lang('en'); location.reload(); });
   refreshHome();
 }
 if (window.pywebview && window.pywebview.api){

@@ -364,3 +364,7 @@ body{
 
 .bk-tile .bk-state{font-size:15px; font-weight:600; margin-top:2px;}
 .bk-tile .bk-dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle;}
+
+/* Toggle de langue */
+.lang-toggle{display:flex; gap:6px;}
+.lang-toggle .btn.active{border-color:var(--accent); color:var(--accent);}
