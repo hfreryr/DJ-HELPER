@@ -797,13 +797,13 @@ async function enrichScan(){
 }
 
 async function revealFile(path){
-  if (!path){ alert('Chemin du fichier manquant.'); return; }
+  if (!path){ alert(t('Chemin du fichier manquant.')); return; }
   if (!API){ return; }
   try {
     const r = await API.reveal_file(path);
-    if (r && !r.ok) alert('Impossible de localiser le fichier :\n' + (r.error || 'erreur inconnue'));
+    if (r && !r.ok) alert(t('Impossible de localiser le fichier :') + '\n' + (r.error || 'erreur inconnue'));
   } catch (e){
-    alert('Impossible de localiser le fichier.');
+    alert(t('Impossible de localiser le fichier.'));
   }
 }
 

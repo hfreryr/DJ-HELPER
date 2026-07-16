@@ -193,6 +193,126 @@ const I18N_EN = {
   "Fichier introuvable": "File not found",
 };
 
+
+// --- lot 2 : textes dynamiques exacts (rendus JS / moteur) ---
+Object.assign(I18N_EN, {
+  "Non définie — requise pour doublons, synchro et sauvegarde": "Not set — required for duplicates, sync and backup",
+  "Aucun doublon": "No duplicates",
+  "Analyse interrompue — les empreintes déjà calculées sont conservées.": "Analysis stopped — fingerprints already computed are kept.",
+  "Comparaison des empreintes…": "Comparing fingerprints…",
+  "Aucun doublon par le son": "No audio duplicates",
+  "Aucun doublon à corriger.": "No duplicates to fix.",
+  "Aucun doublon détecté dans ce dossier. 👌": "No duplicates found in this folder. 👌",
+  "À garder": "Keep",
+  "Garder celle-ci": "Keep this one",
+  "Analyse approfondie…": "Deep analysis…",
+  "Analyse interrompue — les fichiers déjà vérifiés sont conservés en cache.": "Analysis stopped — files already checked are kept in cache.",
+  "Aucun problème détecté. Ta bibliothèque est saine. 👌": "No issues found. Your library is healthy. 👌",
+  "Tous tes fichiers sont déjà bien taggés. Rien à faire. 👌": "All your files are already well tagged. Nothing to do. 👌",
+  "Aucun fichier audio trouvé.": "No audio files found.",
+  "Manquants — à récupérer": "Missing — to get",
+  "À vérifier — correspondance incertaine": "To review — uncertain match",
+  "Tous les morceaux de cette playlist sont déjà sur ta clé. 👌": "Every track in this playlist is already on your stick. 👌",
+  "À faire": "To do",
+  "À jour": "Up to date",
+  "À mettre à jour": "To update",
+  "à refaire": "to redo",
+  "incohérences": "inconsistencies",
+  "fpcalc non détecté — voir Configuration sur l’accueil": "fpcalc not detected — see Settings on the home tab",
+  "Clé enregistrée": "Key saved",
+  "Non identifié": "Not identified",
+  "Titre protégé (remix/edit) — non modifié": "Protected title (remix/edit) — left unchanged",
+  "Écriture…": "Writing…",
+  "Génération…": "Generating…",
+  "Ta clé de secours est déjà à jour. Rien à synchroniser. 👌": "Your spare stick is already up to date. Nothing to sync. 👌",
+  "Les suppressions sont définitives.": "Deletions are permanent.",
+  "Tout est prêt": "All set",
+  "Vérifications à faire": "Checks needed",
+  "Problème détecté": "Problem detected",
+  "État du système": "System status",
+  "Choisis d'abord ton dossier sur l'accueil.": "Choose your folder on the home tab first.",
+  "Échec": "Failed",
+  "Cette opération écrit dans tes fichiers.": "This operation writes to your files.",
+  "Chemin du fichier manquant.": "Missing file path.",
+  "Impossible de localiser le fichier.": "Could not locate the file.",
+  "Impossible de localiser le fichier :": "Could not locate the file:",
+  "Coche au moins un fichier à écarter.": "Check at least one file to move aside.",
+  "Cliquer pour localiser le fichier": "Click to locate the file",
+  "Cliquer pour garder cette version à la place": "Click to keep this version instead",
+  "Aucun : tous tes morceaux sont dans au moins une playlist. 👌": "None: every track is in at least one playlist. 👌",
+  "supprimé": "deleted",
+  "Supprimer définitivement les backups de doublons ? Les copies écartées seront perdues (la version gardée reste). Irréversible.": "Permanently delete the duplicate backups? The set-aside copies will be lost (the kept version stays). Irreversible.",
+});
+
+// Fragments : remplacés en sous-chaîne dans les textes assemblés (nombres, chemins).
+// Appliqués du plus long au plus court pour éviter les collisions.
+const I18N_FRAGMENTS = [
+  ["Non identifiables — à taguer ou renommer à la main", "Unidentifiable — tag or rename manually"],
+  ["Non identifiés — à taguer à la main", "Not identified — tag manually"],
+  ["(clique un morceau pour le localiser)", "(click a track to locate it)"],
+  ["(clique un fichier pour le localiser)", "(click a file to locate it)"],
+  [" fichier(s) déplacé(s) dans _DOUBLONS/ — rien n'est supprimé", " file(s) moved to _DOUBLONS/ — nothing deleted"],
+  [" vers un backup réversible. collection.nml est sauvegardé avant.", " to a reversible backup. collection.nml is backed up first."],
+  [". Irréversible — une sauvegarde du .nml est faite avant.", ". Irreversible — the .nml is backed up first."],
+  [" sauvegarde(s) de doublons sur la clé · ", " duplicate backup(s) on the stick · "],
+  [" supprimé(s) sur la clé de secours. ", " deleted on the spare stick. "],
+  ["À copier vers la clé de secours (", "To copy to the spare stick ("],
+  ["À supprimer de la clé de secours (", "To delete from the spare stick ("],
+  [" morceau(x) dans aucune playlist ▸", " track(s) in no playlist ▸"],
+  ["⚠ AcoustID a refusé la requête : ", "⚠ AcoustID rejected the request: "],
+  [" référence(s) repointée(s) · ", " reference(s) repointed · "],
+  ["Écrire les tags officiels de ", "Write official tags for "],
+  ["Synchronisation terminée — ", "Sync complete — "],
+  [" pochette(s) ajoutée(s)", " cover(s) added"],
+  [" backup(s) supprimé(s) · ", " backup(s) deleted · "],
+  [" playlist(s) exportée(s)", " playlist(s) exported"],
+  [" corrections proposées", " corrections proposed"],
+  [" correction proposée", " correction proposed"],
+  ["Modifier les tags de ", "Write tags for "],
+  [" fichier(s) restauré(s)", " file(s) restored"],
+  [" fichier(s) modifié(s)", " file(s) modified"],
+  [" fichier(s) tagués · ", " file(s) tagged · "],
+  [" déjà bien taggés", " already well tagged"],
+  [" non identifiés ▸", " not identified ▸"],
+  [" · 0 non identifié", " · 0 not identified"],
+  ["fichiers à vérifier", "files to check"],
+  [" fichiers analysés", " files analyzed"],
+  [" morceaux analysés", " tracks analyzed"],
+  [" déjà au format", " already formatted"],
+  ["Dossier choisi : ", "Chosen folder: "],
+  ["Snapshot créé · ", "Snapshot created · "],
+  ["Miroir à jour · ", "Mirror updated · "],
+  ["Clé entière : ", "Whole stick: "],
+  [" à renommer · ", " to rename · "],
+  [" à supprimer · ", " to delete · "],
+  [" à copier · ", " to copy · "],
+  [" copié(s), ", " copied, "],
+  [" copié(s) · ", " copied · "],
+  [" supprimé(s)", " deleted"],
+  [" archivé(s)", " archived"],
+  [" renommé(s)", " renamed"],
+  ["Identifié : ", "Identified: "],
+  ["M3U créé (", "M3U created ("],
+  ["Liste créée (", "List created ("],
+  [" morceaux) : ", " tracks): "],
+  [" manquants) : ", " missing): "],
+  ["Terminé : ", "Done: "],
+  [" fichier(s) · ", " file(s) · "],
+  [" fichier(s)", " file(s)"],
+  [" libéré(s)", " freed"],
+  [" lié(s)", " linked"],
+  [" à vérifier", " to review"],
+  [" erreurs", " errors"],
+  ["Taggé ", "Tagged "],
+].sort((a, b) => b[0].length - a[0].length);
+
+// Règles regex pour les motifs avec nombres imbriqués
+const I18N_REGEX = [
+  [/^sur (\d+) \((\d+) playlists\)$/, "of $1 ($2 playlists)"],
+  [/^(\d+) fichier\(s\) peuvent être corrigés automatiquement à partir de leur nom \(aperçu des valeurs proposées\) :$/,
+   "$1 file(s) can be fixed automatically from their names (preview of proposed values):"],
+];
+
 function t(s){
   return (LANG === 'en' && Object.prototype.hasOwnProperty.call(I18N_EN, s)) ? I18N_EN[s] : s;
 }
@@ -204,7 +324,17 @@ function _translateTextNode(node){
   if (!s) return;
   if (Object.prototype.hasOwnProperty.call(I18N_EN, s)){
     node.nodeValue = raw.replace(s, I18N_EN[s]);
+    return;
   }
+  let out = raw, changed = false;
+  for (const [fr, en] of I18N_REGEX){
+    const m = out.trim().match(fr);
+    if (m){ out = out.replace(out.trim(), out.trim().replace(fr, en)); changed = true; }
+  }
+  for (const [fr, en] of I18N_FRAGMENTS){
+    if (out.includes(fr)){ out = out.split(fr).join(en); changed = true; }
+  }
+  if (changed) node.nodeValue = out;
 }
 
 function translateDom(root){

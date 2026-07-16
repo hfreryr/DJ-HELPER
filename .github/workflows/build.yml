@@ -3,6 +3,7 @@ name: Build releases
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 jobs:
   windows:
@@ -38,8 +39,7 @@ jobs:
           files: DJHelper-windows.zip
 
   macos:
-    # macos-13 = Intel : binaires x86_64 cohérents, exécutés via Rosetta sur Apple Silicon
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
