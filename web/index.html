@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DJ Helper</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="logo">
+      <svg class="disc" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="8" fill="#2b67c2"/>
+        <circle cx="16" cy="16" r="9" fill="#ffffff"/>
+        <circle cx="16" cy="16" r="6" stroke="#2b67c2" stroke-width="1"/>
+        <circle cx="16" cy="16" r="2.4" fill="#2b67c2"/>
+      </svg>
+      <span class="name">DJ Helper</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-item active" data-view="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+        Accueil
+      </div>
+      <div class="nav-section">Bibliothèque</div>
+      <div class="nav-item" data-view="tags">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 7l4.5-4.5a2 2 0 011.4-.6H20a1 1 0 011 1v10.7a2 2 0 01-.6 1.4L15 21a2 2 0 01-2.8 0L3 11.8a2 2 0 010-2.8z"/><circle cx="16.5" cy="7.5" r="1.3"/></svg>
+        Tags
+      </div>
+      <div class="nav-item" data-view="import">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        Importer
+      </div>
+      <div class="nav-item" data-view="orphans">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>
+        Hors playlist
+      </div>
+      <div class="nav-section">Contrôle</div>
+      <div class="nav-item" data-view="dup">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>
+        Doublons
+      </div>
+      <div class="nav-item" data-view="integ">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        Intégrité
+      </div>
+      <div class="nav-item" data-view="sync">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 12a8 8 0 0114-5l2 2"/><path d="M20 5v4h-4"/><path d="M20 12a8 8 0 01-14 5l-2-2"/><path d="M4 19v-4h4"/></svg>
+        Synchro
+      </div>
+    </nav>
+
+    <div class="status-popup" id="status-popup" style="display:none;"></div>
+    <button class="sidebar-foot" id="status-btn"><span class="dot" id="conn-dot"></span> <span id="conn-label">Statut</span></button>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main">
+
+    <!-- ----- Accueil : mise en route (non configuré) ----- -->
+    <section class="view show" id="view-home">
+      <div id="home-setup" style="display:none;">
+        <div class="setup">
+          <svg class="disc-big" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="8" fill="#2b67c2"/>
+            <circle cx="16" cy="16" r="9" fill="#ffffff"/>
+            <circle cx="16" cy="16" r="6" stroke="#2b67c2" stroke-width="1"/>
+            <circle cx="16" cy="16" r="2.4" fill="#2b67c2"/>
+          </svg>
+          <div class="title">DJ Helper</div>
+          <div class="tag">Une app pensée par un DJ, pour les DJ</div>
+          <div class="setup-card">
+            <div class="ct">Mise en route</div>
+            <div class="cs">Choisis ton <b>dossier audio</b> pour commencer. Tu définiras ensuite la <b>racine de ta clé</b> (pour les doublons et la synchro) depuis l'accueil.</div>
+            <div class="check-row">
+              <span class="mk no" id="chk-music-mk">○</span>
+              <div>
+                <div class="rl">Dossier des fichiers audio</div>
+                <div class="rp" id="chk-music-path">à définir</div>
+              </div>
+            </div>
+            <button class="btn primary" id="btn-pick">Choisir le dossier</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ----- Accueil : tableau de bord (configuré) ----- -->
+      <div id="home-dash" style="display:none;">
+        <div class="row-between">
+          <div>
+            <div class="h1">Prêt à mixer</div>
+            <div class="h1-sub" id="dash-sub">—</div>
+          </div>
+          <button class="btn ghost" id="btn-rescan">Re-scanner</button>
+        </div>
+
+        <div class="dash-section">Ta bibliothèque</div>
+        <div class="tiles">
+          <div class="tile">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg> Morceaux</div>
+            <div class="num" id="tile-count">—</div>
+            <div class="meta" id="tile-count-meta">dans ton dossier</div>
+          </div>
+          <div class="tile">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Taille totale</div>
+            <div class="num" id="tile-size">—</div>
+            <div class="meta">sur le disque</div>
+          </div>
+          <div class="tile">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 6V4h10v2"/></svg> Espace libre</div>
+            <div class="num" id="tile-free">—</div>
+            <div class="meta" id="tile-free-meta"></div>
+          </div>
+          <div class="tile">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg> Formats</div>
+            <div class="num" id="tile-formats">—</div>
+            <div class="meta" id="tile-formats-meta">—</div>
+          </div>
+        </div>
+
+        <div class="dash-section">Santé de la collection</div>
+        <div class="tiles">
+          <div class="tile clickable" data-go="dup">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg> Doublons</div>
+            <div class="num" id="tile-dup">—</div>
+            <div class="meta">groupes détectés</div>
+          </div>
+          <div class="tile clickable" data-go="integ">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg> Fichiers corrompus</div>
+            <div class="num" id="tile-integ" style="color:var(--text-3)">—</div>
+            <div class="meta" id="tile-integ-meta">non analysé</div>
+          </div>
+          <div class="tile clickable" data-go="tags">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M20 10V7l-8-4-8 4v3c0 5 3.5 8 8 9"/><path d="M15 15l2 2 4-4"/></svg> Tags manquants</div>
+            <div class="num" id="tile-missing" style="color:var(--text-3)">—</div>
+            <div class="meta">sans artiste ou titre</div>
+          </div>
+          <div class="tile">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 18V9m4 9V5m4 13v-6m4 6V8m4 10v-4"/></svg> Faible qualité</div>
+            <div class="num" id="tile-lowq" style="color:var(--text-3)">—</div>
+            <div class="meta" id="tile-lowq-meta">&lt; 256 kbps</div>
+          </div>
+          <div class="tile clickable" data-go="integ">
+            <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg> Son ≠ tags</div>
+            <div class="num" id="tile-mismatch" style="color:var(--text-3)">—</div>
+            <div class="meta" id="tile-mismatch-meta">non vérifié</div>
+          </div>
+        </div>
+
+        <div class="dash-section">Sauvegardes</div>
+        <div class="bk-list" id="bk-list"></div>
+
+        <div class="card cfg-card">
+          <div class="card-title">Configuration<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Les deux dossiers dont DJ Helper a besoin. Modifiables à tout moment.</span></span></div>
+          <div class="cfg-line">
+            <div class="cfg-info">
+              <div class="cfg-lab">Dossier audio<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Le dossier de tes fichiers musicaux (ex. <code>TRACK BASE</code>). Sert au scan, aux tags, à la détection de doublons.</span></span></div>
+              <div class="cfg-val" id="cfg-music">—</div>
+            </div>
+            <button class="btn ghost btn-sm" id="cfg-music-btn">Modifier</button>
+          </div>
+          <div class="cfg-line">
+            <div class="cfg-info">
+              <div class="cfg-lab">Racine de la clé<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Le dossier qui contient <code>collection.nml</code>, <code>TRACK BASE</code>, <code>Stems</code> — la racine de ta clé. Requis pour corriger les doublons, synchroniser et sauvegarder.</span></span></div>
+              <div class="cfg-val" id="cfg-usb">—</div>
+            </div>
+            <button class="btn ghost btn-sm" id="cfg-usb-btn">Définir</button>
+          </div>
+          <div class="cfg-line">
+            <div class="cfg-info" style="flex:1;">
+              <div class="cfg-lab">Clé AcoustID<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Clé gratuite pour identifier tes fichiers en ligne (vérification son↔tags, enrichissement des tags). Obtiens-la sur <b>acoustid.org</b> → « Register a new application », puis colle la clé ici. Sans elle, seule la détection de doublons par empreinte locale fonctionne.</span></span></div>
+              <div class="ac-key-row" id="ackey-row" style="margin-top:8px;">
+                <input type="text" id="acoustid-key" class="ac-key-input" spellcheck="false" placeholder="Clé d'application AcoustID">
+                <button class="btn ghost btn-sm" id="btn-save-ackey">Enregistrer</button>
+                <a href="https://acoustid.org/new-application" target="_blank" class="ac-key-link">Obtenir une clé</a>
+              </div>
+              <div class="ac-key-set" id="ackey-set" style="display:none; margin-top:8px;">
+                <span class="ac-ok">✓</span> Clé AcoustID enregistrée
+                <a class="ac-key-link" id="ackey-edit">Modifier</a>
+              </div>
+            </div>
+          </div>
+          <div class="cfg-sep">Outils système</div>
+          <div class="cfg-line">
+            <div class="cfg-info">
+              <div class="cfg-lab">ffmpeg<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Décodeur audio, requis pour l'<b>analyse approfondie</b> d'intégrité.<br><br><b>macOS</b> : dans le Terminal, <code>brew install ffmpeg</code> (si « brew » est inconnu, installe Homebrew depuis brew.sh).<br><br><b>Windows</b> : <code>winget install ffmpeg</code> en PowerShell, ou télécharge sur <b>ffmpeg.org</b> et ajoute le dossier <code>bin</code> au PATH.<br><br><b>Linux</b> : <code>sudo apt install ffmpeg</code> (Debian/Ubuntu) ou l'équivalent de ta distribution.</span></span></div>
+              <div class="cfg-val" id="cfg-ffmpeg">—</div>
+            </div>
+          </div>
+          <div class="cfg-line">
+            <div class="cfg-info">
+              <div class="cfg-lab">fpcalc<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Empreinte acoustique (Chromaprint), requis pour la <b>détection de doublons par le son</b> et la <b>vérification AcoustID</b>.<br><br><b>macOS</b> : <code>brew install chromaprint</code> (le binaire <code>fpcalc</code> est inclus).<br><br><b>Windows</b> : télécharge Chromaprint sur <b>acoustid.org/chromaprint</b>, décompresse, et ajoute le dossier contenant <code>fpcalc.exe</code> au PATH.<br><br><b>Linux</b> : <code>sudo apt install libchromaprint-tools</code> (Debian/Ubuntu) ou l'équivalent de ta distribution.</span></span></div>
+              <div class="cfg-val" id="cfg-fpcalc">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="view-import">
+      <div class="h1">Importer</div>
+      <div class="h1-sub">Compare une playlist externe à ta bibliothèque, ou contrôle un dossier de téléchargements</div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="card-title">Comparer une playlist<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Une playlist Spotify, YouTube, Apple Music… ? Convertis-la en texte via TuneMyMusic, puis colle les titres ci-dessous — un par ligne, au format « Artiste - Titre ».</span></span></div>
+        <div class="card-sub">Vois ce que tu as déjà sur ta clé et ce qu'il te manque</div>
+      <textarea id="import-text" class="import-text" spellcheck="false" placeholder="Daft Punk - Get Lucky&#10;Stromae - Alors on danse&#10;Earth, Wind & Fire - September"></textarea>
+      <div class="toolbar">
+        <button class="btn primary" id="btn-compare">Analyser la playlist</button>
+        <span class="count-chip" id="import-count">—</span>
+      </div>
+      <div class="tiles import-counters" id="import-counters" style="display:none;">
+        <div class="tile"><div class="lab">Trouvés</div><div class="num" id="imp-found" style="color:var(--success)">—</div><div class="meta">déjà sur ta clé</div></div>
+        <div class="tile"><div class="lab">À vérifier</div><div class="num warn" id="imp-review">—</div><div class="meta">correspondance incertaine</div></div>
+        <div class="tile"><div class="lab">Manquants</div><div class="num err" id="imp-missing">—</div><div class="meta">à récupérer</div></div>
+      </div>
+      <div class="toolbar" id="import-exports" style="display:none;">
+        <button class="btn ghost" id="btn-export-m3u">Générer le M3U des trouvés</button>
+        <button class="btn ghost" id="btn-export-missing">Exporter les manquants (.txt)</button>
+        <span class="count-chip" id="import-export-msg" style="display:none;"></span>
+      </div>
+      <div id="import-results"></div>
+      <div class="loading" id="import-loading" style="display:none;"><span class="spinner"></span>Comparaison à ta bibliothèque…</div>
+      </div>
+
+      <div class="card" style="margin-top:28px;">
+        <div class="card-title">Vérifier un dossier d'import<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Identifie chaque fichier du dossier par son empreinte acoustique (et non par ses tags, souvent faux sur des téléchargements), puis le compare à ta bibliothèque. Les doublons peuvent être écartés dans un sous-dossier <code>_DOUBLONS/</code> — rien n'est supprimé. Nécessite la clé AcoustID (onglet Intégrité) et <code>fpcalc</code>.</span></span></div>
+        <div class="card-sub">Avant d'intégrer de nouveaux fichiers à ta banque, repère ce que tu as déjà pour éviter les doublons</div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-impchk">Choisir un dossier à vérifier</button>
+          <span class="count-chip" id="impchk-count">—</span>
+        </div>
+        <div class="warn-note" id="impchk-unknown" style="display:none;">⚠ Les « non identifiés » (inconnus d'AcoustID) ne sont pas pré-cochés : l'un d'eux peut être un doublon que l'empreinte n'a pas reconnu. Vérifie-les à la main avant de verser dans ta banque.</div>
+        <div id="impchk-results" style="display:none;">
+          <div class="toolbar" style="margin-top:12px;">
+            <button class="btn ghost btn-sm" id="btn-impchk-all">Tout cocher</button>
+            <button class="btn ghost btn-sm" id="btn-impchk-none">Tout décocher</button>
+            <button class="btn primary btn-sm" id="btn-impchk-discard">Écarter les cochés → _DOUBLONS/</button>
+          </div>
+          <div class="impchk-table" id="impchk-table"></div>
+        </div>
+        <div class="loading" id="impchk-loading" style="display:none;"><span class="spinner"></span>Identification des fichiers d'import…</div>
+      </div>
+    </section>
+
+    <section class="view" id="view-orphans">
+      <div class="h1">Hors playlist</div>
+      <div class="h1-sub">Repère les morceaux de ta bibliothèque qui ne sont dans aucune playlist</div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="card-title">Morceaux dans aucune playlist<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Compare ta bibliothèque aux playlists de <code>collection.nml</code> (Traktor) et liste les morceaux qui ne sont dans aucune playlist. Nécessite la clé branchée. Comparaison par nom de fichier.</span></span></div>
+        <div class="card-sub">Repère les morceaux jamais classés dans une playlist</div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-orphans">Analyser</button>
+          <span class="count-chip" id="orphans-count">—</span>
+        </div>
+        <div class="enrich-unident-list" id="orphans-list" style="display:none; margin-top:12px;"></div>
+      </div>
+    </section>
+
+    <!-- ----- Tags ----- -->
+    <section class="view" id="view-tags">
+      <div class="h1">Tags &amp; nommage</div>
+      <div class="h1-sub">Corrige les métadonnées et les noms de fichiers de ta bibliothèque</div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="card-title">Déduire les tags depuis le nom<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Compare le nom du fichier (souvent « Artiste - Titre ») aux tags internes et corrige ces derniers s'ils sont vides ou erronés. Aperçu avant d'appliquer.</span></span></div>
+        <div class="card-sub">Lit le nom de chaque fichier et corrige les tags artiste/titre en conséquence</div>
+      <div class="toolbar">
+        <button class="btn primary" id="btn-scan-tags">Scanner</button>
+        <button class="btn ghost" id="btn-apply-retag" style="display:none;">Modifier les tags</button>
+        <span class="count-chip" id="tags-count">—</span>
+      </div>
+      <div class="retag-confirm" id="retag-confirm" style="display:none;">
+        <span id="retag-confirm-text"></span>
+        <span style="flex:1;"></span>
+        <button class="btn ghost" id="btn-retag-no">Annuler</button>
+        <button class="btn primary" id="btn-retag-yes">Confirmer</button>
+      </div>
+      <div class="tiles tags-counters" id="tags-counters" style="display:none;">
+        <div class="tile"><div class="lab">Bien taggés</div><div class="num" id="tags-ok" style="color:var(--success)">—</div></div>
+        <div class="tile"><div class="lab">À corriger</div><div class="num warn" id="tags-fix">—</div></div>
+        <div class="tile" id="tile-lost"><div class="lab">Non identifiables</div><div class="num err" id="tags-lost">—</div></div>
+      </div>
+      <div class="enrich-unident-list" id="tags-lost-list" style="display:none; margin-top:12px;"></div>
+      <div id="tags-preview"></div>
+      <div class="empty" id="tags-empty" style="display:none;">Choisis d'abord ton dossier sur l'accueil, puis lance le scan.</div>
+      <div class="loading" id="tags-loading" style="display:none;"><span class="spinner"></span>Lecture des tags…</div>
+      </div>
+
+      <div class="card" style="margin-top:28px;">
+        <div class="card-title">Enrichir les tags via AcoustID<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Identifie chaque fichier par son empreinte acoustique et propose les tags officiels (artiste, titre, album) + la pochette manquante via MusicBrainz. Réutilise la clé AcoustID de l'onglet Intégrité. Les titres marqués remix/edit ne sont jamais remplacés. Analyse en ligne (~1 fichier/s, mise en cache).</span></span></div>
+        <div class="card-sub">Retrouve les tags officiels associés à tes fichiers audio</div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-enrich">Identifier</button>
+          <span class="count-chip" id="enrich-count">—</span>
+
+        </div>
+        <div class="enrich-unident-list" id="enrich-unident-list" style="display:none; margin-top:10px;"></div>
+        <div class="retag-confirm" id="enrich-confirm" style="display:none;">
+          <span id="enrich-confirm-text"></span>
+          <span style="flex:1;"></span>
+          <button class="btn ghost" id="btn-enrich-no">Annuler</button>
+          <button class="btn primary" id="btn-enrich-yes">Confirmer</button>
+        </div>
+        <div id="enrich-results" style="display:none;">
+          <div class="toolbar" style="margin-top:14px;">
+            <button class="btn ghost btn-sm" id="btn-enrich-all">Tout cocher</button>
+            <button class="btn ghost btn-sm" id="btn-enrich-none">Tout décocher</button>
+            <button class="btn primary btn-sm" id="btn-enrich-apply">Appliquer la sélection</button>
+          </div>
+          <div class="enrich-table" id="enrich-table"></div>
+        </div>
+        <div class="loading" id="enrich-loading" style="display:none;"><span class="spinner"></span>Identification en ligne…</div>
+      </div>
+
+      <div class="card" style="margin-top:28px;">
+        <div class="card-title">Renommer les fichiers d'après les tags<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Ta collection Traktor est mise à jour en conséquence — cues &amp; beat grids préservés (sauvegarde de <code>collection.nml</code> faite avant). Nécessite la racine de la clé pour le suivi Traktor.</span></span></div>
+        <div class="card-sub">Grâce à leurs tags, renomme tes fichiers audio au format « Artiste - Titre »</div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-rename-scan">Analyser</button>
+          <button class="btn ghost" id="btn-rename-apply" style="display:none;">Renommer la sélection</button>
+          <span class="count-chip" id="rename-count">—</span>
+        </div>
+        <div class="retag-confirm" id="rename-confirm" style="display:none;">
+          <span id="rename-confirm-text"></span>
+          <span style="flex:1;"></span>
+          <button class="btn ghost" id="btn-rename-no">Annuler</button>
+          <button class="btn primary" id="btn-rename-yes">Confirmer</button>
+        </div>
+        <div id="rename-results" style="display:none;">
+          <div class="rename-tools">
+            <button class="btn ghost btn-sm" id="btn-rn-all">Tout cocher</button>
+            <button class="btn ghost btn-sm" id="btn-rn-none">Tout décocher</button>
+          </div>
+          <div class="rename-table" id="rename-table"></div>
+        </div>
+        <div class="loading" id="rename-loading" style="display:none;"><span class="spinner"></span>Analyse…</div>
+      </div>
+    </section>
+
+    <!-- ----- Doublons ----- -->
+    <section class="view" id="view-dup">
+      <div class="h1">Repérer les doublons<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Deux fichiers identiques gaspillent de la place et encombrent tes playlists. Cet onglet les repère et te laisse garder la meilleure version, puis corriger sans rien supprimer.</span></span></div>
+      <div class="h1-sub">Repère les doublons présents dans tes fichiers audio</div>
+      <div class="warn-banner" id="dup-needs-usb" style="display:none;">
+        <span>⚠️ Racine de la clé non définie — indispensable pour repointer tes playlists Traktor lors de la correction.</span>
+        <button class="btn primary btn-sm" id="btn-dup-setusb">Définir la racine</button>
+      </div>
+      <div class="toolbar">
+        <div class="seg" id="dup-method">
+          <button class="seg-btn active" data-method="title">Par titre</button>
+          <button class="seg-btn" data-method="audio">Par empreinte</button>
+        </div>
+        <span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip"><b>Par titre</b> : compare artiste + titre des tags. Instantané, sans outil externe. Rate les doublons mal taggés ou orthographiés différemment.<br><br><b>Par empreinte</b> : compare le <b>son</b> réel. Attrape ce que « par titre » rate, et ne confond jamais un remix avec l'original. Plus lente (décode tout, puis met en cache). Nécessite <code>fpcalc</code>.</span></span>
+        <button class="btn primary" id="btn-scan-dup">Scanner</button>
+        <button class="btn ghost" id="btn-dup-stop" style="display:none; color:var(--error); border-color:var(--error);">Arrêter</button>
+        <span style="flex:1;"></span>
+        <span class="count-chip" id="dup-count">—</span>
+      </div>
+      <input type="text" id="dup-filter" class="ac-key-input" style="display:none; max-width:280px; margin-top:14px;" spellcheck="false" placeholder="Filtrer les résultats…">
+      <div id="dup-list"></div>
+      <div class="empty" id="dup-empty" style="display:none;">Choisis d'abord ton dossier sur l'accueil, puis lance le scan.</div>
+      <div class="loading" id="dup-loading" style="display:none;"><span class="spinner"></span>Lecture de tes fichiers…</div>
+
+      <div id="dup-actions" style="display:none; margin-top:22px;">
+        <div class="retag-confirm" id="dup-confirm" style="display:none;">
+          <span id="dup-confirm-text"></span>
+          <span style="flex:1;"></span>
+          <button class="btn ghost" id="btn-dup-no">Annuler</button>
+          <button class="btn primary" id="btn-dup-yes">Confirmer</button>
+        </div>
+        <div class="toolbar">
+          <button class="btn primary" id="btn-dup-fix">Corriger les doublons</button>
+          <span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Repointe tes playlists Traktor vers la version gardée, déplace les copies vers <code>_doublons_backup_</code> (réversible, rien n'est supprimé) et sauvegarde <code>collection.nml</code>. Ensuite, dans Traktor : « Remove Missing Tracks ». Nécessite la racine de ta clé (onglet Synchro).</span></span>
+          <span class="count-chip" id="dup-fix-count"></span>
+        </div>
+        <div class="dup-backup-row" id="dup-backup-row" style="display:none;">
+          <span id="dup-backup-info"></span>
+          <span style="flex:1;"></span>
+          <button class="btn ghost btn-sm" id="btn-dup-restore">Restaurer le dernier backup</button>
+          <button class="btn ghost btn-sm" id="btn-dup-clean">Vider les backups</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----- Intégrité ----- -->
+    <section class="view" id="view-integ">
+      <div class="h1">Vérifier tes fichiers</div>
+      <div class="h1-sub">Contrôle l'intégrité technique de tes fichiers et la cohérence entre le son et les tags</div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="card-title">Détecter les fichiers corrompus<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Repère les fichiers dont l'audio est cassé, tronqué ou illisible — ceux qui risquent de planter ou de couper en plein set.</span></span></div>
+        <div class="card-sub">Repère les fichiers audio cassés, tronqués ou illisibles</div>
+        <div class="seg-row">
+        <div class="seg" id="integ-mode">
+        <button class="seg-btn active" data-mode="quick">Rapide</button>
+        <button class="seg-btn" data-mode="deep">Approfondi</button>
+        </div>
+        <span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip"><b>Rapide</b> : vérifie l'en-tête et la structure du fichier. Instantané, sans décodage.<br><br><b>Approfondi</b> : décode entièrement l'audio via ffmpeg pour repérer les fichiers qui s'ouvrent mais sont corrompus ou tronqués en profondeur. Bien plus lent — résultats mis en cache ensuite.</span></span>
+        </div>
+        <div class="deep-opts" id="integ-deep-opts" style="display:none;">
+          <label class="deep-opts-lab" for="integ-workers">Fichiers analysés en parallèle</label>
+          <input type="number" id="integ-workers" class="workers-input" min="1" max="16" value="4">
+          <span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Nombre de fichiers décodés simultanément. Plus élevé = plus rapide, mais plus gourmand en CPU. 4 est un bon compromis ; monte à 8 sur une machine puissante.</span></span>
+        </div>
+      <div class="toolbar">
+        <button class="btn primary" id="btn-scan-integ">Lancer l'analyse</button>
+        <button class="btn ghost" id="btn-integ-stop" style="display:none; color:var(--error); border-color:var(--error);">Arrêter</button>
+        <span class="count-chip" id="integ-count">—</span>
+      </div>
+      <div id="integ-list"></div>
+      <div class="empty" id="integ-empty" style="display:none;">Choisis d'abord ton dossier sur l'accueil, puis lance l'analyse.</div>
+      <div class="loading" id="integ-loading" style="display:none;"><span class="spinner"></span>Analyse des fichiers… (peut prendre un moment sur une grosse bibliothèque)</div>
+      </div>
+
+      <div class="card" style="margin-top:28px;">
+        <div class="card-title">Vérifier le contenu audio (AcoustID)<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Calcule l'empreinte acoustique de chaque fichier (Chromaprint / <code>fpcalc</code>) et l'identifie en ligne via AcoustID, puis compare au tag artiste. Nécessite une clé AcoustID gratuite et <code>fpcalc</code> installé. Analyse en ligne : comptez ~1 fichier/seconde (mis en cache ensuite).</span></span></div>
+        <div class="card-sub">Le son de ton fichier correspond-il à ses tags ?</div>
+        <div class="hint-inline" id="ackey-missing-hint" style="display:none;">⚠ Clé AcoustID non configurée — définis-la sur l'accueil (Configuration) pour activer la vérification.</div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-acoustid">Vérifier le contenu</button>
+          <span class="count-chip" id="acoustid-count">—</span>
+        </div>
+        <div id="acoustid-results"></div>
+        <div class="loading" id="acoustid-loading" style="display:none;"><span class="spinner"></span>Identification en ligne…</div>
+      </div>
+    </section>
+
+    <!-- ----- Synchro ----- -->
+    <section class="view" id="view-sync">
+      <div class="h1">Sauvegarde &amp; synchronisation</div>
+      <div class="h1-sub">Protège ta bibliothèque : clone vers une clé de secours, sauvegardes datées et export des playlists</div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="row-between">
+          <div>
+            <div class="card-title">Source à synchroniser<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Par défaut, seul ton dossier audio est cloné. Définis la racine de la clé (le dossier qui contient <code>collection.nml</code>, <code>Stems</code>, <code>TRACK BASE</code>) pour cloner la clé entière.</span></span></div>
+            <div class="card-sub" id="src-path">Ton dossier audio</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn ghost" id="btn-reset-usb" style="display:none;">Réinitialiser</button>
+            <button class="btn ghost" id="btn-pick-usb">Racine de la clé…</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <div class="card-title">Synchroniser la clé de secours</div>
+            <div class="card-sub" id="spare-path">Aucun dossier choisi</div>
+          </div>
+          <button class="btn ghost" id="btn-pick-spare">Choisir</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn primary" id="btn-sync-plan" disabled>Analyser</button>
+        <button class="btn ghost" id="btn-sync-apply" style="display:none;">Synchroniser</button>
+        <span class="count-chip" id="sync-count">—</span>
+      </div>
+
+      <div class="retag-confirm" id="sync-confirm" style="display:none;">
+        <span id="sync-confirm-text"></span>
+        <span style="flex:1;"></span>
+        <button class="btn ghost" id="btn-sync-no">Annuler</button>
+        <button class="btn primary" id="btn-sync-yes">Confirmer</button>
+      </div>
+
+      <div id="sync-results"></div>
+      <div class="loading" id="sync-loading" style="display:none;"><span class="spinner"></span>Comparaison des deux dossiers…</div>
+
+      <div class="card" style="margin-top:28px;">
+        <div class="row-between">
+          <div>
+            <div class="card-title">Sauvegarde de structure<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Génère un manifeste daté (inventaire complet : artiste, titre, durée, arborescence) et copie <code>collection.nml</code> s'il est présent. Léger, lisible, non destructif.</span></span></div>
+            <div class="card-sub" id="struct-dest">Stocke ta collection en sécurité dans un dossier de ton choix</div>
+          </div>
+          <button class="btn ghost" id="btn-pick-struct">Choisir un dossier</button>
+        </div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-export-struct" disabled>Sauvegarder la structure</button>
+          <span class="count-chip" id="struct-count">—</span>
+        </div>
+        <div class="loading" id="struct-loading" style="display:none;"><span class="spinner"></span>Indexation…</div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="row-between">
+          <div>
+            <div class="card-title">Coffre-fort de playlists<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Lit <code>collection.nml</code> et génère dans <code>M3U/</code> un arbre de playlists <code>.m3u</code> (chemins absolus, requis par Traktor à l'import), avec copie horodatée du <code>.nml</code>. Nécessite la racine de la clé. Les playlists supprimées dans Traktor sont nettoyées au passage suivant.</span></span></div>
+            <div class="card-sub">Exporte tes playlists Traktor en fichiers M3U lisibles</div>
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-m3u">Générer les M3U</button>
+          <span class="count-chip" id="m3u-count">—</span>
+        </div>
+        <div class="loading" id="m3u-loading" style="display:none;"><span class="spinner"></span>Lecture de collection.nml…</div>
+      </div>
+
+      <div class="card" style="margin-top:24px;">
+        <div class="row-between">
+          <div>
+            <div class="card-title">Sauvegarde complète<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Sur disque Mac (APFS/HFS+) : snapshots datés façon Time Machine — les fichiers inchangés sont liés, pas recopiés. Sur clé exFAT/FAT32 : miroir « courant » + archive datée des versions remplacées. La 1re passe copie tout ; les suivantes ne traitent que les nouveautés. La destination doit être différente de la source.</span></span></div>
+            <div class="card-sub" id="full-dest">Copie versionnée de tous tes fichiers dans un dossier de ton choix</div>
+          </div>
+          <button class="btn ghost" id="btn-pick-full">Choisir un dossier</button>
+        </div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-full-backup" disabled>Sauvegarder tout</button>
+          <span class="count-chip" id="full-count">—</span>
+        </div>
+        <div class="loading" id="full-loading" style="display:none;"><span class="spinner"></span>Sauvegarde en cours…</div>
+      </div>
+    </section>
+
+    <!-- ----- Coquilles ----- -->
+    <section class="view" id="view-soon">
+      <div class="h1" id="soon-title">À venir</div>
+      <div class="placeholder">
+        <div class="pt">Cet onglet n'est pas encore branché</div>
+        <div class="pd">On portera ta logique existante ici, ensemble, écran par écran.</div>
+      </div>
+    </section>
+
+  </main>
+
+<script src="app.js"></script>
+</body>
+</html>

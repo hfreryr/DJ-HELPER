@@ -1,0 +1,70 @@
+name: Build releases
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt pyinstaller
+
+      # ffmpeg (build GPL, gyan.dev) et fpcalc (Chromaprint) embarqués
+      - name: Download ffmpeg
+        run: |
+          curl -L -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          7z e ffmpeg.zip -offbin */bin/ffmpeg.exe -r
+          move ffbin\ffmpeg.exe ffmpeg.exe
+      - name: Download fpcalc
+        run: |
+          curl -L -o fpcalc.zip https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-windows-x86_64.zip
+          7z e fpcalc.zip -ofpbin fpcalc.exe -r
+          move fpbin\fpcalc.exe fpcalc.exe
+
+      - run: >
+          pyinstaller --noconfirm --windowed --name "DJ Helper"
+          --add-data "web;web" --add-data "cacert.pem;."
+          --add-binary "ffmpeg.exe;." --add-binary "fpcalc.exe;."
+          --collect-all webview --collect-submodules mutagen
+          --hidden-import numpy --hidden-import rapidfuzz main.py
+      - run: Compress-Archive -Path "dist/DJ Helper" -DestinationPath "DJHelper-windows.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: DJHelper-windows.zip
+
+  macos:
+    # macos-13 = Intel : binaires x86_64 cohérents, exécutés via Rosetta sur Apple Silicon
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt pyinstaller
+
+      - name: Download ffmpeg
+        run: |
+          curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
+          unzip -o ffmpeg.zip
+          chmod +x ffmpeg
+      - name: Download fpcalc
+        run: |
+          curl -L -o fpcalc.tgz https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-macos-x86_64.tar.gz
+          tar xzf fpcalc.tgz --strip-components=1
+          chmod +x fpcalc
+
+      - run: >
+          pyinstaller --noconfirm --windowed --name "DJ Helper"
+          --add-data "web:web" --add-data "cacert.pem:."
+          --add-binary "ffmpeg:." --add-binary "fpcalc:."
+          --collect-all webview --collect-submodules mutagen
+          --hidden-import numpy --hidden-import rapidfuzz main.py
+      - run: ditto -c -k --keepParent "dist/DJ Helper.app" DJHelper-macos.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: DJHelper-macos.zip
