@@ -2362,6 +2362,7 @@ class Core:
         else:
             for t in batch:
                 r = quick_integrity_check(t["path"])
+                self._integ_store(t["path"], r, mode="quick")
                 if r["severity"] != "ok":
                     self._integ_items.append({
                         "name": t["name"], "path": t["path"], "ext": t["ext"],
@@ -2370,8 +2371,7 @@ class Core:
         finished = end >= len(tracks)
         result = None
         if finished:
-            if self._integ_mode == "deep":
-                self._save_integ_cache()
+            self._save_integ_cache()
             items = self._integ_items
             order = {"critical": 0, "warning": 1}
             items.sort(key=lambda x: (order.get(x["severity"], 2), x["name"].lower()))
@@ -2429,13 +2429,20 @@ class Core:
                 return None
         except Exception:
             return None
+        if ent.get("mode", "deep") != "deep":
+            return None   # un résultat "rapide" ne vaut pas une analyse approfondie
         return {"severity": ent.get("severity", "ok"), "errors": ent.get("errors", [])}
 
-    def _integ_store(self, path, r):
+    def _integ_store(self, path, r, mode="deep"):
         try:
             rel = os.path.relpath(path, self.music_folder)
-            self._integ_cache[rel] = {"sig": self._integ_sig(path),
-                                      "severity": r["severity"], "errors": r["errors"]}
+            sig = self._integ_sig(path)
+            ent = self._integ_cache.get(rel)
+            if (mode == "quick" and ent and ent.get("mode", "deep") == "deep"
+                    and ent.get("sig") == sig):
+                return  # ne pas remplacer un résultat approfondi encore valide
+            self._integ_cache[rel] = {"sig": sig, "severity": r["severity"],
+                                      "errors": r["errors"], "mode": mode}
         except Exception:
             pass
 
