@@ -368,3 +368,10 @@ body{
 /* Toggle de langue */
 .lang-toggle{display:flex; gap:6px;}
 .lang-toggle .btn.active{border-color:var(--accent); color:var(--accent);}
+
+/* Toggle de langue compact (sidebar) */
+.lang-mini{padding:6px 22px 2px; font-size:11.5px; color:var(--text-3); letter-spacing:.4px;}
+.lang-mini span{cursor:pointer;}
+.lang-mini .sep{margin:0 6px; cursor:default;}
+.lang-mini span.active{color:var(--accent); font-weight:700;}
+.lang-mini span:not(.sep):hover{color:var(--text);}
