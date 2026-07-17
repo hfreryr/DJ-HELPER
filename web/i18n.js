@@ -313,6 +313,107 @@ const I18N_REGEX = [
    "$1 file(s) can be fixed automatically from their names (preview of proposed values):"],
 ];
 
+
+// --- lot 3 : info-bulles, sous-titres de cartes, placeholders ---
+Object.assign(I18N_EN, {
+  "Les deux dossiers dont DJ Helper a besoin. Modifiables à tout moment.": "The two folders DJ Helper needs. Changeable at any time.",
+  "— la racine de ta clé. Requis pour corriger les doublons, synchroniser et sauvegarder.": "— your USB stick root. Required to fix duplicates, sync and back up.",
+  "Clé gratuite pour identifier tes fichiers en ligne (vérification son↔tags, enrichissement des tags). Obtiens-la sur": "Free key to identify your files online (audio↔tags verification, tag enrichment). Get it at",
+  "→ « Register a new application », puis colle la clé ici. Sans elle, seule la détection de doublons par empreinte locale fonctionne.": "→ “Register a new application”, then paste the key here. Without it, only local fingerprint duplicate detection works.",
+  "(si « brew » est inconnu, installe Homebrew depuis brew.sh).": "(if “brew” is unknown, install Homebrew from brew.sh).",
+  "Compare une playlist externe à ta bibliothèque, ou contrôle un dossier de téléchargements": "Compare an external playlist to your library, or check a downloads folder",
+  "Une playlist Spotify, YouTube, Apple Music… ? Convertis-la en texte via TuneMyMusic, puis colle les titres ci-dessous — un par ligne, au format « Artiste - Titre ».": "A Spotify, YouTube or Apple Music playlist? Convert it to text with TuneMyMusic, then paste the titles below — one per line, as “Artist - Title”.",
+  "Identifie chaque fichier du dossier par son empreinte acoustique (et non par ses tags, souvent faux sur des téléchargements), puis le compare à ta bibliothèque. Les doublons peuvent être écartés dans un sous-dossier": "Identifies each file in the folder by its acoustic fingerprint (not its tags, often wrong on downloads), then compares it to your library. Duplicates can be moved aside into a subfolder",
+  "— rien n'est supprimé. Nécessite la clé AcoustID (onglet Intégrité) et": "— nothing is deleted. Requires the AcoustID key (Integrity tab) and",
+  "Avant d'intégrer de nouveaux fichiers à ta banque, repère ce que tu as déjà pour éviter les doublons": "Before adding new files to your bank, spot what you already have to avoid duplicates",
+  "⚠ Les « non identifiés » (inconnus d'AcoustID) ne sont pas pré-cochés : l'un d'eux peut être un doublon que l'empreinte n'a pas reconnu. Vérifie-les à la main avant de verser dans ta banque.": "⚠ “Not identified” files (unknown to AcoustID) are not pre-checked: one of them may be a duplicate the fingerprint missed. Check them manually before adding them to your bank.",
+  "Repère les morceaux de ta bibliothèque qui ne sont dans aucune playlist": "Finds the tracks in your library that are in no playlist",
+  "(Traktor) et liste les morceaux qui ne sont dans aucune playlist. Nécessite la clé branchée. Comparaison par nom de fichier.": "(Traktor) and lists the tracks that are in no playlist. Requires the stick to be plugged in. Comparison by file name.",
+  "Corrige les métadonnées et les noms de fichiers de ta bibliothèque": "Fix your library's metadata and file names",
+  "Compare le nom du fichier (souvent « Artiste - Titre ») aux tags internes et corrige ces derniers s'ils sont vides ou erronés. Aperçu avant d'appliquer.": "Compares the file name (usually “Artist - Title”) to the embedded tags and fixes them when empty or wrong. Preview before applying.",
+  "Lit le nom de chaque fichier et corrige les tags artiste/titre en conséquence": "Reads each file's name and fixes the artist/title tags accordingly",
+  "Choisis d'abord ton dossier sur l'accueil, puis lance le scan.": "Choose your folder on the home tab first, then run the scan.",
+  "Identifie chaque fichier par son empreinte acoustique et propose les tags officiels (artiste, titre, album) + la pochette manquante via MusicBrainz. Réutilise la clé AcoustID de l'onglet Intégrité. Les titres marqués remix/edit ne sont jamais remplacés. Analyse en ligne (~1 fichier/s, mise en cache).": "Identifies each file by its acoustic fingerprint and proposes the official tags (artist, title, album) plus missing cover art via MusicBrainz. Reuses the AcoustID key from the Integrity tab. Titles marked remix/edit are never replaced. Online analysis (~1 file/s, cached).",
+  "Ta collection Traktor est mise à jour en conséquence — cues & beat grids préservés (sauvegarde de": "Your Traktor collection is updated accordingly — cues & beat grids preserved (backup of",
+  "faite avant). Nécessite la racine de la clé pour le suivi Traktor.": "made first). Requires the stick root for Traktor tracking.",
+  "Grâce à leurs tags, renomme tes fichiers audio au format « Artiste - Titre »": "Uses their tags to rename your audio files as “Artist - Title”",
+  "Deux fichiers identiques gaspillent de la place et encombrent tes playlists. Cet onglet les repère et te laisse garder la meilleure version, puis corriger sans rien supprimer.": "Two identical files waste space and clutter your playlists. This tab finds them, lets you keep the best version, then fixes everything without deleting anything.",
+  "⚠️ Racine de la clé non définie — indispensable pour repointer tes playlists Traktor lors de la correction.": "⚠️ USB stick root not set — required to repoint your Traktor playlists during the fix.",
+  ": compare artiste + titre des tags. Instantané, sans outil externe. Rate les doublons mal taggés ou orthographiés différemment.": ": compares tag artist + title. Instant, no external tool. Misses badly tagged or differently spelled duplicates.",
+  "réel. Attrape ce que « par titre » rate, et ne confond jamais un remix avec l'original. Plus lente (décode tout, puis met en cache). Nécessite": "itself. Catches what “by title” misses, and never confuses a remix with the original. Slower (decodes everything, then caches). Requires",
+  "Repointe tes playlists Traktor vers la version gardée, déplace les copies vers": "Repoints your Traktor playlists to the kept version, moves the copies to",
+  ". Ensuite, dans Traktor : « Remove Missing Tracks ». Nécessite la racine de ta clé (onglet Synchro).": ". Then, in Traktor: “Remove Missing Tracks”. Requires your stick root (Sync tab).",
+  "Contrôle l'intégrité technique de tes fichiers et la cohérence entre le son et les tags": "Checks your files' technical integrity and the consistency between audio and tags",
+  "Repère les fichiers dont l'audio est cassé, tronqué ou illisible — ceux qui risquent de planter ou de couper en plein set.": "Finds files whose audio is broken, truncated or unreadable — the ones that may crash or cut out mid-set.",
+  ": vérifie l'en-tête et la structure du fichier. Instantané, sans décodage.": ": checks the file header and structure. Instant, no decoding.",
+  ": décode entièrement l'audio via ffmpeg pour repérer les fichiers qui s'ouvrent mais sont corrompus ou tronqués en profondeur. Bien plus lent — résultats mis en cache ensuite.": ": fully decodes the audio with ffmpeg to find files that open but are deeply corrupted or truncated. Much slower — results are cached afterwards.",
+  "Nombre de fichiers décodés simultanément. Plus élevé = plus rapide, mais plus gourmand en CPU. 4 est un bon compromis ; monte à 8 sur une machine puissante.": "Number of files decoded at once. Higher = faster but more CPU-hungry. 4 is a good compromise; go up to 8 on a powerful machine.",
+  "Choisis d'abord ton dossier sur l'accueil, puis lance l'analyse.": "Choose your folder on the home tab first, then run the analysis.",
+  "Analyse des fichiers… (peut prendre un moment sur une grosse bibliothèque)": "Analyzing files… (can take a while on a large library)",
+  "Calcule l'empreinte acoustique de chaque fichier (Chromaprint /": "Computes each file's acoustic fingerprint (Chromaprint /",
+  ") et l'identifie en ligne via AcoustID, puis compare au tag artiste. Nécessite une clé AcoustID gratuite et": ") and identifies it online via AcoustID, then compares it to the artist tag. Requires a free AcoustID key and",
+  "installé. Analyse en ligne : comptez ~1 fichier/seconde (mis en cache ensuite).": "installed. Online analysis: expect ~1 file/second (cached afterwards).",
+  "⚠ Clé AcoustID non configurée — définis-la sur l'accueil (Configuration) pour activer la vérification.": "⚠ AcoustID key not set — define it on the home tab (Settings) to enable verification.",
+  "Protège ta bibliothèque : clone vers une clé de secours, sauvegardes datées et export des playlists": "Protect your library: clone to a spare stick, dated backups and playlist export",
+  "Par défaut, seul ton dossier audio est cloné. Définis la racine de la clé (le dossier qui contient": "By default, only your audio folder is cloned. Set the stick root (the folder containing",
+  "Génère un manifeste daté (inventaire complet : artiste, titre, durée, arborescence) et copie": "Generates a dated manifest (full inventory: artist, title, duration, tree) and copies",
+  "Stocke ta collection en sécurité dans un dossier de ton choix": "Stores your collection safely in a folder of your choice",
+  "(chemins absolus, requis par Traktor à l'import), avec copie horodatée du": "(absolute paths, required by Traktor on import), with a timestamped copy of the",
+  ". Nécessite la racine de la clé. Les playlists supprimées dans Traktor sont nettoyées au passage suivant.": ". Requires the stick root. Playlists deleted in Traktor are cleaned up on the next pass.",
+  "Sur disque Mac (APFS/HFS+) : snapshots datés façon Time Machine — les fichiers inchangés sont liés, pas recopiés. Sur clé exFAT/FAT32 : miroir « courant » + archive datée des versions remplacées. La 1re passe copie tout ; les suivantes ne traitent que les nouveautés. La destination doit être différente de la source.": "On a Mac disk (APFS/HFS+): dated Time Machine-style snapshots — unchanged files are linked, not recopied. On an exFAT/FAT32 stick: a “current” mirror plus a dated archive of replaced versions. The first pass copies everything; later ones only handle what's new. The destination must differ from the source.",
+  "Copie versionnée de tous tes fichiers dans un dossier de ton choix": "Versioned copy of all your files into a folder of your choice",
+  "On portera ta logique existante ici, ensemble, écran par écran.": "We'll port your existing logic here, together, screen by screen.",
+  "Clé d'application AcoustID": "AcoustID application key",
+  "Filtrer les résultats…": "Filter results…",
+});
+
+
+// --- lot 3b : messages du moteur (core.py) ---
+Object.assign(I18N_EN, {
+  "Aucun backup trouvé sur la clé.": "No backup found on the stick.",
+  "Aucun backup à supprimer.": "No backup to delete.",
+  "Aucun dossier d'import actif.": "No active import folder.",
+  "Aucun fichier audio dans ce dossier.": "No audio files in this folder.",
+  "Aucune ligne sélectionnée": "No line selected",
+  "Bibliothèque indexée": "Library indexed",
+  "Chemin renseigné mais introuvable (clé débranchée ?)": "Path set but not found (stick unplugged?)",
+  "Choisis un dossier de sauvegarde.": "Choose a backup folder.",
+  "Clé de secours introuvable": "Spare stick not found",
+  "Configurée": "Configured",
+  "Dossier d'import introuvable": "Import folder not found",
+  "Dossier de musique (base) introuvable. Définis-le sur l'accueil.": "Music folder (base) not found. Set it on the home tab.",
+  "Dossier introuvable": "Folder not found",
+  "La clé de secours doit être différente du dossier principal": "The spare stick must differ from the main folder",
+  "La destination ne peut pas être la source.": "The destination cannot be the source.",
+  "Lecture de collection.nml impossible.": "Could not read collection.nml.",
+  "Non configurée — enrichissement et vérification du contenu indisponibles": "Not set — enrichment and content verification unavailable",
+  "Non installé — analyse approfondie indisponible": "Not installed — deep analysis unavailable",
+  "Non installé — doublons par empreinte et AcoustID indisponibles": "Not installed — fingerprint duplicates and AcoustID unavailable",
+  "Pas encore scannée": "Not scanned yet",
+  "Racine de la clé non configurée.": "USB stick root not set.",
+  "Source introuvable": "Source not found",
+  "Source introuvable (définis le dossier ou la clé).": "Source not found (set the folder or the stick).",
+  "Source introuvable. Définis la racine de la clé.": "Source not found. Set the stick root.",
+  "Version introuvable": "Version not found",
+});
+// Fragments moteur (messages avec chemins/valeurs interpolés)
+I18N_FRAGMENTS.push(
+  ["Clé AcoustID manquante. Renseigne-la sur l'accueil, ", "AcoustID key missing. Set it on the home tab, "],
+  ["Configure la racine de ta clé (onglet Synchro) : ", "Set your stick root (Sync tab): "],
+  ["Fichiers renommés mais écriture de collection.nml ", "Files renamed but writing collection.nml "],
+  ["Impossible de créer _DOUBLONS/ : ", "Could not create _DOUBLONS/: "],
+  ["Introuvable : ", "Not found: "],
+  ["Lecture des playlists impossible : ", "Could not read playlists: "],
+  ["Sauvegarde de collection.nml impossible : ", "Could not back up collection.nml: "],
+  ["Écriture collection.nml impossible : ", "Could not write collection.nml: "],
+  ["collection.nml introuvable sur la clé : ", "collection.nml not found on the stick: "],
+  ["collection.nml introuvable. Définis la racine de la clé ", "collection.nml not found. Set the stick root "],
+  ["ffmpeg introuvable — installe-le depuis la carte Configuration ", "ffmpeg not found — install it from the Settings card "],
+  ["fpcalc introuvable — installe Chromaprint depuis la ", "fpcalc not found — install Chromaprint from the "],
+  ["format non géré : ", "unsupported format: "]
+);
+I18N_FRAGMENTS.sort((a, b) => b[0].length - a[0].length);
+
 function t(s){
   return (LANG === 'en' && Object.prototype.hasOwnProperty.call(I18N_EN, s)) ? I18N_EN[s] : s;
 }
