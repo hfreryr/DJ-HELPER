@@ -15,8 +15,11 @@ Windows et macOS.
    `DJHelper-windows.zip` ou `DJHelper-macos.zip`. **Tout est inclus**
    (ffmpeg et fpcalc embarqués — si tu les as déjà, tes versions priment).
 2. Dézippe, puis :
-   - **Windows** : lance `DJ Helper.exe`. Si SmartScreen s'affiche :
-     « Informations complémentaires » → « Exécuter quand même » (app non signée).
+   - **Windows** : avant d'extraire, clic droit sur le zip téléchargé →
+     Propriétés → coche **Débloquer** → OK (Windows marque les fichiers
+     téléchargés et .NET refuse de charger un composant marqué — l'app ne
+     démarre pas sinon). Puis extrais et lance `DJ Helper.exe`. Si SmartScreen
+     s'affiche : « Informations complémentaires » → « Exécuter quand même ».
    - **macOS** : glisse `DJ Helper.app` dans Applications, puis **clic droit →
      Ouvrir** au premier lancement. Build pour Apple Silicon (M1 et suivants) ;
      si macOS propose d'installer Rosetta au premier usage des outils audio,
@@ -59,6 +62,7 @@ ProtonDrive…) : la synchro peut servir des fichiers périmés.
 
 | Symptôme | Solution |
 |---|---|
+| Windows : plantage au lancement mentionnant `Python.Runtime.dll` | Fichiers bloqués par Windows : clic droit sur le zip → Propriétés → Débloquer, ré-extraire. Ou PowerShell : `Get-ChildItem -Path <dossier> -Recurse \| Unblock-File` |
 | Badge ffmpeg/fpcalc rouge (depuis les sources) | Rouvre le terminal ; ou pose les binaires dans le dossier du projet |
 | Erreur SSL AcoustID (depuis les sources) | Vérifie que `cacert.pem` est à côté de `core.py` |
 | Une mise à jour semble sans effet | Dossier synchronisé périmé ou `__pycache__` : sors le projet de la synchro, supprime `__pycache__` |

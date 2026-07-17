@@ -15,7 +15,10 @@ stick synchronization. Windows and macOS.
    (ffmpeg and fpcalc are bundled — if you already have them installed, your
    versions take priority and the bundled copies are simply ignored).
 2. Unzip, then:
-   - **Windows**: run `DJ Helper.exe`. If SmartScreen shows a warning:
+   - **Windows**: before extracting, right-click the downloaded zip →
+     Properties → check **Unblock** → OK (Windows flags downloaded files and
+     .NET refuses to load flagged components — the app won't start otherwise).
+     Then extract and run `DJ Helper.exe`. If SmartScreen shows a warning:
      "More info" → "Run anyway" (unsigned app).
    - **macOS**: drag `DJ Helper.app` to Applications, then **right-click →
      Open** on first launch (unidentified developer warning, one time only).
@@ -61,6 +64,7 @@ ProtonDrive…): sync can serve stale files.
 
 | Symptom | Fix |
 |---|---|
+| Windows: crash at launch mentioning `Python.Runtime.dll` | The downloaded files are blocked: right-click the zip → Properties → Unblock, re-extract. Or in PowerShell: `Get-ChildItem -Path <folder> -Recurse \| Unblock-File` |
 | ffmpeg/fpcalc badge red (running from source) | Reopen the terminal; or drop the binaries into the project folder |
 | AcoustID SSL error (running from source) | Check that `cacert.pem` sits next to `core.py` |
 | An update seems to have no effect | Stale synced folder or `__pycache__`: move the project out of sync, delete `__pycache__` |
