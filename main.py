@@ -305,8 +305,13 @@ def main():
         if getattr(api, "_quit_ok", False):
             return True
         if getattr(api.core, "_m3u_running", False):
-            return False   # génération en cours : ne pas fermer, ne pas re-prompter
+            return False   # génération en cours : ne pas fermer
         try:
+            # Windows : le pont JS<->Python n'est pas fiable après une fermeture
+            # annulée (régénération qui gèle). On ferme directement : le contrôle
+            # au DÉMARRAGE prend le relais et proposera la régénération.
+            if sys.platform.startswith("win"):
+                return True
             if api.core.vault_check().get("changed"):
                 # ouvrir le dialogue dans l'UI et annuler cette fermeture-ci
                 api._window.evaluate_js("showVaultPrompt()")
