@@ -19,6 +19,16 @@ SUPPORTED = {".mp3", ".flac", ".wav", ".aiff", ".aif", ".m4a", ".aac", ".ogg"}
 _CA_BUNDLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cacert.pem")
 
 
+def _quiet_run():
+    """kwargs pour subprocess : sous Windows, empêche l'ouverture d'une console
+    furtive à chaque appel de fpcalc/ffmpeg (CREATE_NO_WINDOW)."""
+    import sys as _s
+    if _s.platform.startswith("win"):
+        return {"creationflags": 0x08000000}
+    return {}
+
+
+
 # ---------------------------------------------------------------------------
 # Fichiers parasites à ignorer
 # ---------------------------------------------------------------------------
@@ -418,7 +428,7 @@ def acoustid_fingerprint_raw(filepath, fpcalc_path, timeout=120):
     import subprocess, json
     try:
         proc = subprocess.run([fpcalc_path, "-raw", "-json", str(filepath)],
-                              capture_output=True, text=True, timeout=timeout)
+                              capture_output=True, text=True, timeout=timeout, **_quiet_run())
         if proc.returncode != 0 or not proc.stdout.strip():
             return None, None
         data = json.loads(proc.stdout)
@@ -474,7 +484,7 @@ def acoustid_fingerprint(filepath, fpcalc_path, timeout=60):
     import subprocess, json
     try:
         proc = subprocess.run([fpcalc_path, "-json", str(filepath)],
-                              capture_output=True, text=True, timeout=timeout)
+                              capture_output=True, text=True, timeout=timeout, **_quiet_run())
         if proc.returncode != 0 or not proc.stdout.strip():
             return None, None
         data = json.loads(proc.stdout)
@@ -867,7 +877,7 @@ def deep_integrity_check(path, ffmpeg_path, timeout=300, check_clipping=False):
         else:
             args = [ffmpeg_path, "-hide_banner", "-v", "error", "-stats",
                     "-i", str(path), "-f", "null", "-"]
-        result = subprocess.run(args, capture_output=True, timeout=timeout)
+        result = subprocess.run(args, capture_output=True, timeout=timeout, **_quiet_run())
         stderr_text = result.stderr.decode("utf-8", errors="replace")
         severity = "ok"
         errors = []
@@ -2506,10 +2516,24 @@ class Core:
         self._en_unident_list = []
         self._en_api_error = ""
         self._en_unident = self._en_error = self._en_ok = 0
+        self._en_cancel = False
         return {"ok": True, "total": len(paths)}
+
+    def enrich_cancel(self):
+        self._en_cancel = True
+        return {"ok": True}
 
     def enrich_step(self, count=6):
         import time, concurrent.futures
+        if getattr(self, "_en_cancel", False):
+            self._save_enrich_cache()
+            return {"ok": True, "cancelled": True, "done": self._en_i,
+                    "total": len(self._en_paths), "finished": True,
+                    "proposals": self._en_proposals,
+                    "unident_list": self._en_unident_list,
+                    "n_proposed": len(self._en_proposals), "n_unident": self._en_unident,
+                    "n_error": self._en_error, "n_already_ok": self._en_ok,
+                    "api_error": getattr(self, "_en_api_error", "")}
         paths = self._en_paths
         start = self._en_i
         end = min(start + count, len(paths))

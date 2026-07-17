@@ -303,6 +303,7 @@ const I18N_FRAGMENTS = [
   [" lié(s)", " linked"],
   [" à vérifier", " to review"],
   [" erreurs", " errors"],
+  ["Analyse interrompue — résultats partiels · ", "Analysis stopped — partial results · "],
   ["Taggé ", "Tagged "],
 ].sort((a, b) => b[0].length - a[0].length);
 

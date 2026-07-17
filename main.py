@@ -222,6 +222,9 @@ class Api:
     def enrich_step(self, count=3):
         return self.core.enrich_step(count)
 
+    def enrich_cancel(self):
+        return self.core.enrich_cancel()
+
     def enrich_apply(self, selection):
         return self.core.enrich_apply(selection)
 

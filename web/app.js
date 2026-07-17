@@ -762,14 +762,17 @@ async function enrichScan(){
   $('enrich-results').style.display = 'none';
   $('enrich-confirm').style.display = 'none';
   $('btn-enrich').disabled = true;
+  $('btn-enrich-stop').style.display = '';
   const res = await runChunked('enrich-loading', 'Identification…',
     () => API.enrich_begin(), (n) => API.enrich_step(n), 6);
   $('btn-enrich').disabled = false;
+  $('btn-enrich-stop').style.display = 'none';
   if (!res || !res.ok){
     $('enrich-count').textContent = (res && res.error) ? res.error : 'Erreur';
     return;
   }
-  let note = res.n_proposed + ' correction' + (res.n_proposed > 1 ? 's' : '')
+  let note = (res.cancelled ? 'Analyse interrompue — résultats partiels · ' : '')
+    + res.n_proposed + ' correction' + (res.n_proposed > 1 ? 's' : '')
     + ' proposée' + (res.n_proposed > 1 ? 's' : '') + ' · ' + res.n_already_ok + ' déjà bien taggés';
   if (res.n_error) note += ' · ' + res.n_error + ' erreurs';
   enrichUnident = res.unident_list || [];
@@ -1261,6 +1264,7 @@ $('btn-save-ackey').addEventListener('click', saveAcoustidKey);
 $('ackey-edit').addEventListener('click', () => setAckeyMode(false));
 $('btn-acoustid').addEventListener('click', checkAcoustid);
 $('btn-enrich').addEventListener('click', enrichScan);
+$('btn-enrich-stop').addEventListener('click', () => { if (API) API.enrich_cancel(); });
 $('enrich-count').addEventListener('click', (e) => {
   if (e.target && e.target.closest && e.target.closest('#enrich-unident-link')) toggleEnrichUnident();
 });

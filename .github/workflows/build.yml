@@ -32,6 +32,7 @@ jobs:
 
       - run: >
           pyinstaller --noconfirm --windowed --name "DJ Helper"
+          --icon assets/icon.ico
           --add-data "web;web" --add-data "cacert.pem;."
           --add-binary "ffmpeg.exe;." --add-binary "fpcalc.exe;."
           --collect-all webview --collect-submodules mutagen
@@ -61,9 +62,18 @@ jobs:
           curl -L -o fpcalc.tgz https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-macos-x86_64.tar.gz
           tar xzf fpcalc.tgz --strip-components=1
           chmod +x fpcalc
+      - name: Build icns
+        run: |
+          mkdir icon.iconset
+          for s in 16 32 128 256 512; do
+            sips -z $s $s assets/icon.png --out icon.iconset/icon_${s}x${s}.png
+            sips -z $((s*2)) $((s*2)) assets/icon.png --out icon.iconset/icon_${s}x${s}@2x.png
+          done
+          iconutil -c icns icon.iconset -o DJHelper.icns
 
       - run: >
           pyinstaller --noconfirm --windowed --name "DJ Helper"
+          --icon DJHelper.icns
           --add-data "web:web" --add-data "cacert.pem:."
           --add-binary "ffmpeg:." --add-binary "fpcalc:."
           --collect-all webview --collect-submodules mutagen
