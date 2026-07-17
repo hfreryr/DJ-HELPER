@@ -232,6 +232,9 @@ Object.assign(I18N_EN, {
   "État du système": "System status",
   "Choisis d'abord ton dossier sur l'accueil.": "Choose your folder on the home tab first.",
   "Échec": "Failed",
+  "Plus tard": "Later",
+  "Régénérer": "Regenerate",
+  "Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant ?": "Your Traktor collection has changed since the last vault backup (playlists, sorting or cues). Regenerate the M3U vault now?",
   "Cette opération écrit dans tes fichiers.": "This operation writes to your files.",
   "Chemin du fichier manquant.": "Missing file path.",
   "Impossible de localiser le fichier.": "Could not locate the file.",
@@ -372,6 +375,11 @@ Object.assign(I18N_EN, {
 // --- lot 3b : messages du moteur (core.py) ---
 Object.assign(I18N_EN, {
   "Aucun backup trouvé sur la clé.": "No backup found on the stick.",
+  "Mettre à jour le coffre-fort M3U ?": "Update the M3U vault?",
+  "Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant avant de quitter ?": "Your Traktor collection has changed since the last vault backup (playlists, sorting or cues). Regenerate the M3U vault now before quitting?",
+  "Quitter sans régénérer": "Quit without regenerating",
+  "Régénérer et quitter": "Regenerate and quit",
+  "coffre-fort à jour": "vault up to date",
   "Aucun backup à supprimer.": "No backup to delete.",
   "Aucun dossier d'import actif.": "No active import folder.",
   "Aucun fichier audio dans ce dossier.": "No audio files in this folder.",

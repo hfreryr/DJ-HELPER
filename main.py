@@ -210,6 +210,18 @@ class Api:
     def set_lang(self, lang):
         return self.core.set_lang(lang)
 
+    def vault_check(self):
+        return self.core.vault_check()
+
+    def confirm_quit(self):
+        """Fermeture définitive demandée par l'UI (après le choix de l'utilisateur)."""
+        self._quit_ok = True
+        try:
+            self._window.destroy()
+        except Exception:
+            pass
+        return {"ok": True}
+
     def acoustid_begin(self):
         return self.core.acoustid_begin()
 
@@ -288,6 +300,19 @@ class Api:
 
 def main():
     api = Api()
+
+    def on_closing():
+        if getattr(api, "_quit_ok", False):
+            return True
+        try:
+            if api.core.vault_check().get("changed"):
+                # ouvrir le dialogue dans l'UI et annuler cette fermeture-ci
+                api._window.evaluate_js("showVaultPrompt()")
+                return False
+        except Exception:
+            pass
+        return True
+
     window = webview.create_window(
         "DJ Helper",
         resource_path("web/index.html"),
@@ -298,6 +323,7 @@ def main():
         background_color="#191919",
     )
     api.set_window(window)
+    window.events.closing += on_closing
     webview.start(debug=bool(os.environ.get("DJHELPER_DEBUG")))
 
 

@@ -19,6 +19,24 @@ SUPPORTED = {".mp3", ".flac", ".wav", ".aiff", ".aif", ".m4a", ".aac", ".ogg"}
 _CA_BUNDLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cacert.pem")
 
 
+def nml_hash(usb_root):
+    """SHA-1 du collection.nml de la clé, ou '' si introuvable/illisible.
+    Sert à détecter un changement (playlists, cues) depuis la dernière
+    génération du coffre-fort M3U."""
+    import hashlib
+    try:
+        nml = bk_find_collection_nml(usb_root)
+        if not nml:
+            return ""
+        h = hashlib.sha1()
+        with open(nml, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return ""
+
+
 def _quiet_run():
     """kwargs pour subprocess : sous Windows, empêche l'ouverture d'une console
     furtive à chaque appel de fpcalc/ffmpeg (CREATE_NO_WINDOW)."""
@@ -1258,6 +1276,7 @@ class Core:
         self.usb_root = ""
         self.acoustid_key = ""
         self.lang = "en"
+        self.last_vault_nml_hash = ""
         self.tracks = []
         self._scan_cache = {}
         self._acoustid_cache = {}
@@ -1287,6 +1306,7 @@ class Core:
             self.usb_root = (data.get("usb_root") or "").strip()
             self.acoustid_key = (data.get("acoustid_key") or "").strip()
             self.lang = (data.get("lang") or "en").strip() or "en"
+            self.last_vault_nml_hash = data.get("last_vault_nml_hash") or ""
         except Exception:
             pass
 
@@ -1299,7 +1319,9 @@ class Core:
                 json.dump({"music_folder": self.music_folder,
                            "usb_root": self.usb_root,
                            "acoustid_key": self.acoustid_key,
-                           "lang": getattr(self, "lang", "en")}, f, ensure_ascii=False, indent=2)
+                           "lang": getattr(self, "lang", "en"),
+                           "last_vault_nml_hash": getattr(self, "last_vault_nml_hash", "")},
+                          f, ensure_ascii=False, indent=2)
         except Exception:
             pass
 
@@ -2556,6 +2578,16 @@ class Core:
         self._en_cancel = False
         return {"ok": True, "total": len(paths)}
 
+    def vault_check(self):
+        """La structure Traktor (collection.nml) a-t-elle changé depuis la
+        dernière génération du coffre-fort M3U ? Appelé à la fermeture."""
+        root = (self.usb_root or "").strip()
+        if not root or not os.path.isdir(root):
+            return {"changed": False}
+        cur = nml_hash(root)
+        changed = bool(cur) and cur != getattr(self, "last_vault_nml_hash", "")
+        return {"changed": changed}
+
     def enrich_cancel(self):
         self._en_cancel = True
         return {"ok": True}
@@ -3415,6 +3447,13 @@ class Core:
         finished = end >= len(playlists)
         result = None
         if finished:
+            # mémoriser l'état de collection.nml : sert à détecter les
+            # changements de structure à la fermeture de l'app
+            try:
+                self.last_vault_nml_hash = nml_hash((self.usb_root or "").strip())
+                self._save_config()
+            except Exception:
+                pass
             produced = self._m3u_produced
             orphan_keys = ({unicodedata.normalize("NFC", x) for x in self._m3u_old_manifest}
                            - {unicodedata.normalize("NFC", x) for x in produced})

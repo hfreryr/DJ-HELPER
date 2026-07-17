@@ -1417,9 +1417,64 @@ async function boot(){
   fr.addEventListener('click', async () => { await API.set_lang('fr'); location.reload(); });
   en.addEventListener('click', async () => { await API.set_lang('en'); location.reload(); });
   refreshHome();
+  try {
+    const v = await API.vault_check();
+    if (v && v.changed) showVaultPrompt('start');
+  } catch (e){}
 }
 if (window.pywebview && window.pywebview.api){
   boot();
 } else {
   window.addEventListener('pywebviewready', boot);
 }
+
+
+// ---------- fermeture : coffre-fort M3U à jour ? ----------
+let vaultMode = 'quit';
+function showVaultPrompt(mode){
+  vaultMode = mode || 'quit';
+  const box = $('vault-modal');
+  box.querySelector('.modal-text').textContent = (vaultMode === 'quit')
+    ? 'Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant avant de quitter ?'
+    : 'Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant ?';
+  $('btn-vq-skip').textContent = (vaultMode === 'quit') ? 'Quitter sans régénérer' : 'Plus tard';
+  $('btn-vq-regen').textContent = (vaultMode === 'quit') ? 'Régénérer et quitter' : 'Régénérer';
+  ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = false);
+  $('btn-vq-cancel').style.display = (vaultMode === 'quit') ? '' : 'none';
+  box.style.display = 'flex';
+  $('vault-progress').style.display = 'none';
+  translateDom(box);
+}
+$('btn-vq-cancel').addEventListener('click', () => {
+  $('vault-modal').style.display = 'none';
+});
+$('btn-vq-skip').addEventListener('click', () => {
+  if (vaultMode === 'quit'){ if (API) API.confirm_quit(); }
+  else $('vault-modal').style.display = 'none';
+});
+$('btn-vq-regen').addEventListener('click', async () => {
+  if (!API) return;
+  ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = true);
+  const prog = $('vault-progress');
+  prog.style.display = '';
+  prog.textContent = t('Lecture de collection.nml…');
+  try {
+    const begin = await API.m3u_begin();
+    if (!begin || !begin.ok){
+      prog.textContent = (begin && begin.error) || t('Échec');
+      ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = false);
+      return;
+    }
+    const total = begin.total || 0;
+    let done = 0;
+    while (done < total){
+      const r = await API.m3u_step(8);
+      done = r.done;
+      prog.textContent = t('Génération…') + ' ' + Math.round(done * 100 / Math.max(total, 1)) + ' %';
+      if (r.finished) break;
+    }
+    prog.textContent = t('Terminé : ') + t('coffre-fort à jour');
+  } catch (e){}
+  if (vaultMode === 'quit') API.confirm_quit();
+  else setTimeout(() => { $('vault-modal').style.display = 'none'; }, 1200);
+});

@@ -531,6 +531,19 @@
 
   </main>
 
+
+  <div class="modal-overlay" id="vault-modal" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-title">Mettre à jour le coffre-fort M3U ?</div>
+      <div class="modal-text">Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant avant de quitter ?</div>
+      <div class="modal-progress" id="vault-progress" style="display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn ghost btn-sm" id="btn-vq-cancel">Annuler</button>
+        <button class="btn ghost btn-sm" id="btn-vq-skip">Quitter sans régénérer</button>
+        <button class="btn primary btn-sm" id="btn-vq-regen">Régénérer et quitter</button>
+      </div>
+    </div>
+  </div>
 <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
