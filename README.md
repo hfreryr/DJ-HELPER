@@ -52,6 +52,14 @@ ProtonDrive…): sync can serve stale files.
 
 ## Notes
 
+- **Windows + Traktor: assign a fixed drive letter to your USB stick.** Windows
+  assigns letters on plug-in, and Traktor stores absolute paths — if your stick
+  mounts as `E:` instead of `D:`, your whole collection shows as missing. Fix it
+  once per PC: Disk Management → right-click the stick's partition → "Change
+  Drive Letter and Paths…" → pick a high letter (e.g. `T:`). Do the same for
+  your spare stick (plugged alone, same letter). Then configure Traktor and
+  DJ Helper using that letter.
+
 - App caches live in `~/.djhelper/` (they survive updates).
 - Playlist features (playlist-aware duplicate resolution, structure backup,
   M3U vault, tracks-without-playlist) read Traktor's `collection.nml` from the

@@ -51,6 +51,14 @@ ProtonDrive…) : la synchro peut servir des fichiers périmés.
 
 ## Notes
 
+- **Windows + Traktor : fixe une lettre de lecteur à ta clé USB.** Windows
+  attribue les lettres au branchement, et Traktor stocke des chemins absolus —
+  si ta clé monte en `E:` au lieu de `D:`, toute la collection apparaît
+  manquante. À faire une fois par PC : Gestion des disques → clic droit sur la
+  partition de la clé → « Modifier la lettre de lecteur et les chemins… » →
+  choisis une lettre haute (ex. `T:`). Idem pour la clé de secours (branchée
+  seule, même lettre). Configure ensuite Traktor et DJ Helper avec cette lettre.
+
 - Caches de l'app : `~/.djhelper/` (survivent aux mises à jour).
 - Les fonctions playlists (doublons via playlists, structure, M3U, hors-playlist)
   lisent le `collection.nml` de Traktor sur la clé. Sans Traktor, les fonctions

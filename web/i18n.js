@@ -317,7 +317,7 @@ const I18N_REGEX = [
 // --- lot 3 : info-bulles, sous-titres de cartes, placeholders ---
 Object.assign(I18N_EN, {
   "Les deux dossiers dont DJ Helper a besoin. Modifiables à tout moment.": "The two folders DJ Helper needs. Changeable at any time.",
-  "— la racine de ta clé. Requis pour corriger les doublons, synchroniser et sauvegarder.": "— your USB stick root. Required to fix duplicates, sync and back up.",
+  "— la racine de ta clé. Requis pour corriger les doublons, synchroniser et sauvegarder. Sous Windows, fixe une lettre de lecteur stable à ta clé (ex. T:) via Gestion des disques : Traktor stocke des chemins absolus, une lettre qui change casse la collection.": "— your USB stick root. Required to fix duplicates, sync and back up. On Windows, assign a stable drive letter to your stick (e.g. T:) via Disk Management: Traktor stores absolute paths, and a changing letter breaks the collection.",
   "Clé gratuite pour identifier tes fichiers en ligne (vérification son↔tags, enrichissement des tags). Obtiens-la sur": "Free key to identify your files online (audio↔tags verification, tag enrichment). Get it at",
   "→ « Register a new application », puis colle la clé ici. Sans elle, seule la détection de doublons par empreinte locale fonctionne.": "→ “Register a new application”, then paste the key here. Without it, only local fingerprint duplicate detection works.",
   "(si « brew » est inconnu, installe Homebrew depuis brew.sh).": "(if “brew” is unknown, install Homebrew from brew.sh).",
