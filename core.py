@@ -1892,10 +1892,9 @@ class Core:
                 base = os.path.basename(rel).lower()
                 if base:
                     in_pl.add(base)
-        if not self.tracks:
-            res = self.scan_library()
-            if not res.get("ok"):
-                return {"ok": False, "error": res.get("error", "Scan impossible")}
+        res = self.scan_library()   # re-scan frais : prend en compte les fichiers ajoutés
+        if not res.get("ok"):
+            return {"ok": False, "error": res.get("error", "Scan impossible")}
         orphans = [{"name": t["name"], "path": t["path"]}
                    for t in self.tracks
                    if os.path.basename(t["path"]).lower() not in in_pl]
@@ -2201,8 +2200,8 @@ class Core:
 
     # ----- intégrité (lecture seule) : mode rapide ou approfondi (ffmpeg) -----
     def check_integrity(self, mode="quick"):
-        if not self.tracks:
-            res = self.scan_library()
+        if True:
+            res = self.scan_library()   # re-scan frais
             if not res.get("ok"):
                 return {"ok": False, "error": res.get("error", "Scan impossible"),
                         "items": [], "n": 0, "n_critical": 0, "n_warning": 0, "total": 0}
@@ -2874,8 +2873,8 @@ class Core:
         return entries
 
     def compare_playlist(self, text, threshold=85):
-        if not self.tracks:
-            res = self.scan_library()
+        if True:
+            res = self.scan_library()   # re-scan frais
             if not res.get("ok"):
                 return {"ok": False, "error": res.get("error", "Scan impossible"),
                         "found": [], "review": [], "missing": [],
@@ -2899,10 +2898,9 @@ class Core:
 
     # --- comparaison playlist en lots (barre de progression) ---
     def compare_begin(self, text, threshold=85):
-        if not self.tracks:
-            res = self.scan_library()
-            if not res.get("ok"):
-                return {"ok": False, "error": res.get("error", "Scan impossible"), "total": 0}
+        res = self.scan_library()   # re-scan frais : prend en compte les fichiers ajoutés
+        if not res.get("ok"):
+            return {"ok": False, "error": res.get("error", "Scan impossible"), "total": 0}
         self._cmp_entries = self._parse_playlist(text)
         self._cmp_threshold = threshold
         self._cmp_idx = 0
