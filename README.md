@@ -19,6 +19,9 @@ stick synchronization. Windows and macOS.
      "More info" → "Run anyway" (unsigned app).
    - **macOS**: drag `DJ Helper.app` to Applications, then **right-click →
      Open** on first launch (unidentified developer warning, one time only).
+     The build targets Apple Silicon (M1 and later); if macOS offers to install
+     Rosetta on first use of the audio tools, accept. Intel Macs: use the
+     "Running from source" method below.
 3. Configure from the Home tab: audio folder, USB stick root, and an AcoustID
    **application** key (free: https://acoustid.org/new-application).
 

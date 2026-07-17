@@ -18,7 +18,9 @@ Windows et macOS.
    - **Windows** : lance `DJ Helper.exe`. Si SmartScreen s'affiche :
      « Informations complémentaires » → « Exécuter quand même » (app non signée).
    - **macOS** : glisse `DJ Helper.app` dans Applications, puis **clic droit →
-     Ouvrir** au premier lancement.
+     Ouvrir** au premier lancement. Build pour Apple Silicon (M1 et suivants) ;
+     si macOS propose d'installer Rosetta au premier usage des outils audio,
+     accepte. Mac Intel : passe par « Lancer depuis les sources ».
 3. Configure dans l'accueil : dossier audio, racine de la clé USB, et une clé
    AcoustID d'**application** (gratuite : https://acoustid.org/new-application).
 
