@@ -3354,6 +3354,8 @@ class Core:
     # --- coffre-fort de playlists : export M3U miroir de collection.nml ---
     def m3u_begin(self):
         import json, datetime, shutil as _sh
+        if getattr(self, "_m3u_running", False):
+            return {"ok": False, "error": "Génération déjà en cours…", "total": 0}
         root = self._sync_source()
         if not (root and os.path.isdir(root)):
             return {"ok": False, "error": "Source introuvable. Définis la racine de la clé.", "total": 0}
@@ -3397,6 +3399,7 @@ class Core:
         self._m3u_meta = {}
         self._m3u_old_manifest = old_manifest
         self._m3u_nml_backup = nml_backup
+        self._m3u_running = True
         return {"ok": True, "total": len(playlists)}
 
     def _m3u_get_meta(self, rel):
@@ -3455,25 +3458,27 @@ class Core:
             except Exception:
                 pass
             produced = self._m3u_produced
-            orphan_keys = ({unicodedata.normalize("NFC", x) for x in self._m3u_old_manifest}
-                           - {unicodedata.normalize("NFC", x) for x in produced})
+            # Nettoyage absolu : le dossier M3U appartient au coffre-fort. Tout
+            # .m3u qui ne correspond plus à une playlist actuelle est supprimé
+            # (couvre aussi les fichiers antérieurs au manifest).
+            produced_norm = {unicodedata.normalize("NFC", x) for x in produced}
             n_orphans = 0
-            if orphan_keys:
-                for dirpath, dirnames, filenames in os.walk(m3u_root):
-                    if "_nml_backup" in dirpath.split(os.sep):
+            for dirpath, dirnames, filenames in os.walk(m3u_root):
+                parts = dirpath.split(os.sep)
+                if "_nml_backup" in parts or "IMPORTS" in parts:
+                    continue
+                for fn in filenames:
+                    if not fn.endswith(".m3u"):
                         continue
-                    for fn in filenames:
-                        if not fn.endswith(".m3u"):
-                            continue
-                        full = os.path.join(dirpath, fn)
-                        rel = unicodedata.normalize(
-                            "NFC", os.path.relpath(full, m3u_root).replace(os.sep, "/"))
-                        if rel in orphan_keys:
-                            try:
-                                os.unlink(full)
-                                n_orphans += 1
-                            except OSError:
-                                pass
+                    full = os.path.join(dirpath, fn)
+                    rel = unicodedata.normalize(
+                        "NFC", os.path.relpath(full, m3u_root).replace(os.sep, "/"))
+                    if rel not in produced_norm:
+                        try:
+                            os.unlink(full)
+                            n_orphans += 1
+                        except OSError:
+                            pass
             for dirpath, dirnames, filenames in os.walk(m3u_root, topdown=False):
                 parts = dirpath.split(os.sep)
                 if "_nml_backup" in parts or "IMPORTS" in parts:
@@ -3495,6 +3500,7 @@ class Core:
             result = {"ok": True, "playlists": self._m3u_written,
                       "missing": self._m3u_missing, "orphans": n_orphans,
                       "nml_backup": self._m3u_nml_backup, "m3u_root": m3u_root}
+            self._m3u_running = False
             self._backup_log_record("m3u")
         return {"done": end, "total": len(playlists), "finished": finished, "result": result}
 

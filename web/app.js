@@ -1431,7 +1431,9 @@ if (window.pywebview && window.pywebview.api){
 
 // ---------- fermeture : coffre-fort M3U à jour ? ----------
 let vaultMode = 'quit';
+let vaultBusy = false;
 function showVaultPrompt(mode){
+  if (vaultBusy){ $('vault-modal').style.display = 'flex'; return; }
   vaultMode = mode || 'quit';
   const box = $('vault-modal');
   box.querySelector('.modal-text').textContent = (vaultMode === 'quit')
@@ -1453,16 +1455,18 @@ $('btn-vq-skip').addEventListener('click', () => {
   else $('vault-modal').style.display = 'none';
 });
 $('btn-vq-regen').addEventListener('click', async () => {
-  if (!API) return;
+  if (!API || vaultBusy) return;
+  vaultBusy = true;
   ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = true);
   const prog = $('vault-progress');
   prog.style.display = '';
-  prog.textContent = t('Lecture de collection.nml…');
+  prog.innerHTML = '<span class="spinner"></span>' + esc(t('Lecture de collection.nml…'));
   try {
     const begin = await API.m3u_begin();
     if (!begin || !begin.ok){
       prog.textContent = (begin && begin.error) || t('Échec');
       ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = false);
+      vaultBusy = false;
       return;
     }
     const total = begin.total || 0;
@@ -1470,11 +1474,12 @@ $('btn-vq-regen').addEventListener('click', async () => {
     while (done < total){
       const r = await API.m3u_step(8);
       done = r.done;
-      prog.textContent = t('Génération…') + ' ' + Math.round(done * 100 / Math.max(total, 1)) + ' %';
+      prog.innerHTML = '<span class="spinner"></span>' + esc(t('Génération…') + ' ' + Math.round(done * 100 / Math.max(total, 1)) + ' %');
       if (r.finished) break;
     }
     prog.textContent = t('Terminé : ') + t('coffre-fort à jour');
   } catch (e){}
+  vaultBusy = false;
   if (vaultMode === 'quit') API.confirm_quit();
   else setTimeout(() => { $('vault-modal').style.display = 'none'; }, 1200);
 });

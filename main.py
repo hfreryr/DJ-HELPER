@@ -304,6 +304,8 @@ def main():
     def on_closing():
         if getattr(api, "_quit_ok", False):
             return True
+        if getattr(api.core, "_m3u_running", False):
+            return False   # génération en cours : ne pas fermer, ne pas re-prompter
         try:
             if api.core.vault_check().get("changed"):
                 # ouvrir le dialogue dans l'UI et annuler cette fermeture-ci
