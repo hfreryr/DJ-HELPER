@@ -1611,13 +1611,45 @@ class Core:
             pass
         return {"count": n, "size": size}
 
+    def _playlist_tree_hash(self):
+        """Empreinte de la STRUCTURE des playlists Traktor (noms + contenu),
+        pour détecter une réorganisation dans Traktor même sans changement de
+        fichiers. None si la clé/collection.nml est indisponible. Mise en cache
+        par (mtime, taille) du nml pour ne pas re-parser à chaque accueil."""
+        import hashlib
+        usb = (self.usb_root or "").strip()
+        if not usb or not os.path.isdir(usb):
+            return None
+        nml = bk_find_collection_nml(usb)
+        if not nml:
+            return None
+        try:
+            st = os.stat(nml)
+            key = (st.st_mtime_ns, st.st_size)
+            cached = getattr(self, "_ptree_cache", None)
+            if cached and cached[0] == key:
+                return cached[1]
+            playlists, ok = bk_parse_traktor_playlist_tree(nml)
+            if not ok:
+                return None
+            parts = []
+            for pl in sorted(playlists, key=lambda p: p.get("name", "")):
+                parts.append(pl.get("name", ""))
+                parts.extend(pl.get("tracks", []))
+            h = hashlib.sha1("\n".join(parts).encode("utf-8", "replace")).hexdigest()
+            self._ptree_cache = (key, h)
+            return h
+        except Exception:
+            return None
+
     def _backup_log_record(self, kind):
         """Enregistre qu'une sauvegarde vient d'être effectuée avec succès."""
         import datetime
         try:
             self._backup_log[kind] = {
                 "last": datetime.datetime.now().isoformat(timespec="seconds"),
-                "ref": self._backup_ref()}
+                "ref": self._backup_ref(),
+                "ptree": self._playlist_tree_hash()}
             self._save_backup_log()
         except Exception:
             pass
@@ -1625,6 +1657,7 @@ class Core:
     def backups_status(self):
         """Pour chaque type de sauvegarde : jamais faite / à jour / à refaire."""
         cur = self._backup_ref()
+        cur_ptree = self._playlist_tree_hash()
         out = []
         for key, label in self.BACKUP_KINDS:
             ent = (getattr(self, "_backup_log", {}) or {}).get(key)
@@ -1635,6 +1668,11 @@ class Core:
             ref = ent.get("ref") or {}
             stale = (ref.get("count") != cur["count"]
                      or ref.get("size") != cur["size"])
+            # réorganisation de playlists dans Traktor (structure), même sans
+            # changement de fichiers — vérifiable seulement si clé branchée et
+            # empreinte enregistrée à la dernière sauvegarde
+            if not stale and cur_ptree and ent.get("ptree") and ent["ptree"] != cur_ptree:
+                stale = True
             out.append({"key": key, "label": label,
                         "state": "stale" if stale else "ok",
                         "last": ent.get("last")})
