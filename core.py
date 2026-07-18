@@ -1183,7 +1183,7 @@ def fix_duplicates_via_playlists(nml_text, mount, volume, groups, master_choices
     → Remove Missing dans Traktor). Retourne (new_nml_text, stats)."""
     import unicodedata
     import shutil
-    idx = nml_index_locations(nml_text, volume)
+    idx = nml_index_locations_any(nml_text)   # volume lu depuis le nml, jamais deviné
 
     def nml_key(path):
         try:
@@ -1193,8 +1193,8 @@ def fix_duplicates_via_playlists(nml_text, mount, volume, groups, master_choices
             raw = idx.get(k)
             if not raw:
                 return None
-            dir_raw, file_raw = raw
-            return "%s%s%s" % (volume, dir_raw, file_raw)
+            dir_raw, file_raw, vol_raw = raw
+            return "%s%s%s" % (vol_raw, dir_raw, file_raw)
         except Exception:
             return None
 
@@ -3627,7 +3627,7 @@ class Core:
         if nml_path and os.path.isfile(nml_path):
             try:
                 with open(nml_path, encoding="utf-8", newline="") as f:
-                    idx = nml_index_locations(f.read(), volume)
+                    idx = nml_index_locations_any(f.read())
             except Exception:
                 idx = {}
         paths = []
@@ -3683,14 +3683,16 @@ class Core:
             key = ((unicodedata.normalize("NFC", dir_t), unicodedata.normalize("NFC", name))
                    if dir_t is not None else None)
             in_nml = key in self._rn_idx if key else False
-            dir_raw, file_raw = self._rn_idx.get(key, ("", "")) if in_nml else ("", "")
+            dir_raw, file_raw, vol_raw = (self._rn_idx.get(key, ("", "", ""))
+                                          if in_nml else ("", "", ""))
             try:
                 disp = os.path.relpath(d, self._rn_mount)
             except Exception:
                 disp = os.path.basename(d)
             self._rn_rows.append({"path": p, "old_name": name, "new_name": new,
                                   "in_nml": in_nml, "dir_raw": dir_raw,
-                                  "file_raw": file_raw, "dir_display": disp})
+                                  "file_raw": file_raw, "vol_raw": vol_raw,
+                                  "dir_display": disp})
         self._rn_i = end
         finished = end >= len(paths)
         result = None
@@ -3744,7 +3746,7 @@ class Core:
                 if data.get("in_nml") and self._ra_nml_text is not None:
                     self._ra_nml_text, n = nml_rewrite_file(
                         self._ra_nml_text, data.get("dir_raw", ""), data.get("file_raw", ""),
-                        self._ra_volume, new_name)
+                        data.get("vol_raw") or self._ra_volume, new_name)
                     if n == 1:
                         self._ra_nmlupd += 1
             except Exception:
