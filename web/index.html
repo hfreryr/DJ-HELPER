@@ -255,8 +255,10 @@
         <div class="card-sub">Repère les morceaux jamais classés dans une playlist</div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-orphans">Analyser</button>
+          <button class="btn ghost" id="btn-orphans-traktor" style="display:none;">Créer la playlist « À CLASSER » dans Traktor<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Écrit dans <code>collection.nml</code> une playlist « À CLASSER » contenant tes morceaux hors playlist (sauvegarde du .nml faite avant). Ouvre ensuite Traktor : glisse-dépose chaque morceau vers sa vraie playlist. La playlist est régénérée à chaque passage — les morceaux classés en disparaissent d'eux-mêmes. Traktor doit être fermé.</span></span></button>
           <span class="count-chip" id="orphans-count">—</span>
         </div>
+        <div class="ok-note" id="orphans-traktor-result" style="display:none; margin-top:10px;"></div>
         <div class="enrich-unident-list" id="orphans-list" style="display:none; margin-top:12px;"></div>
       </div>
     </section>

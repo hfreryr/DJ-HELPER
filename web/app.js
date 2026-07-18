@@ -1303,10 +1303,13 @@ async function scanOrphans(){
     return;
   }
   orphansData = res.orphans || [];
+  $('orphans-traktor-result').style.display = 'none';
   if (!res.n_orphans){
     $('orphans-count').innerHTML = '<span style="color:var(--success)">Aucun : tous tes morceaux sont dans au moins une playlist. 👌</span>';
+    $('btn-orphans-traktor').style.display = 'none';
     return;
   }
+  $('btn-orphans-traktor').style.display = '';
   $('orphans-count').innerHTML = '<span class="num-link" id="orphans-link">'
     + res.n_orphans + ' morceau(x) dans aucune playlist ▸</span>'
     + ' <span style="color:var(--text-3)">sur ' + res.n_total + ' (' + res.n_playlists + ' playlists)</span>';
@@ -1322,6 +1325,23 @@ async function scanOrphans(){
   };
 }
 $('btn-orphans').addEventListener('click', scanOrphans);
+$('btn-orphans-traktor').addEventListener('click', async () => {
+  if (!API) return;
+  if (!confirm(t('Ferme Traktor avant de continuer. La playlist « À CLASSER » sera créée/régénérée dans collection.nml (sauvegarde automatique). Continuer ?'))) return;
+  const b = $('btn-orphans-traktor');
+  b.disabled = true;
+  const out = $('orphans-traktor-result');
+  out.style.display = ''; out.textContent = t('Écriture…');
+  const r = await API.orphans_to_traktor();
+  b.disabled = false;
+  if (!r || !r.ok){ out.textContent = (r && r.error) || t('Erreur'); return; }
+  let msg = t('Playlist « À CLASSER » ') + (r.existed ? t('régénérée') : t('créée'))
+    + ' · ' + r.added + t(' morceau(x)');
+  if (r.skipped) msg += ' · ' + r.skipped + t(' ignoré(s) — absents de la collection Traktor (importe d\'abord TRACK BASE dans Traktor)');
+  if (r.backup) msg += ' · ' + t('sauvegarde : ') + r.backup;
+  msg += ' — ' + t('ouvre Traktor et glisse-dépose vers tes playlists.');
+  out.textContent = msg;
+});
 $('btn-export-m3u').addEventListener('click', async () => {
   const msg = $('import-export-msg');
   const r = await API.export_found_m3u();

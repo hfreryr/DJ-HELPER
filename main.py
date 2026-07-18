@@ -171,6 +171,9 @@ class Api:
     def orphan_tracks(self):
         return self.core.orphan_tracks()
 
+    def orphans_to_traktor(self):
+        return self.core.orphans_to_traktor()
+
     def dup_backup_info(self):
         return self.core.dup_backup_info()
 

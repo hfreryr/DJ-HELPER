@@ -1003,6 +1003,9 @@ def _xml_unescape(s):
              .replace("&quot;", '"').replace("&apos;", "'"))
 
 
+ORPHANS_PLAYLIST_NAME = "À CLASSER"
+
+
 def usb_mount_and_volume(usb_path):
     """(mount, volume) pour un chemin sous /Volumes/<nom>/… ; sinon (chemin, basename)."""
     parts = os.path.normpath(usb_path).split(os.sep)
@@ -1948,6 +1951,8 @@ class Core:
             return {"ok": False, "error": "Aucune playlist lisible dans collection.nml."}
         in_pl = set()
         for pl in playlists:
+            if pl.get("name") == ORPHANS_PLAYLIST_NAME:
+                continue   # notre playlist de tri ne compte pas comme classement
             for rel in pl.get("tracks", []):
                 base = os.path.basename(rel).lower()
                 if base:
@@ -2028,6 +2033,83 @@ class Core:
         return {"ok": True, "n_repointed": stats["n_repointed"], "n_moved": stats["n_moved"],
                 "n_groups": stats["n_groups"], "nml_backup": os.path.basename(nml_bak),
                 "backup_dir": os.path.basename(backup_dir)}
+
+
+    def orphans_to_traktor(self):
+        """Crée/régénère la playlist « À CLASSER » dans collection.nml avec les
+        morceaux hors playlist, pour les classer par glisser-déposer dans
+        Traktor. Traktor doit être FERMÉ. Sauvegarde du .nml faite avant."""
+        import unicodedata, datetime, uuid
+        res = self.orphan_tracks()
+        if not res.get("ok"):
+            return res
+        orphans = res.get("orphans", [])
+        usb = (self.usb_root or "").strip()
+        mount, volume = usb_mount_and_volume(usb)
+        nml_path = bk_find_collection_nml(mount) or bk_find_collection_nml(usb)
+        if not nml_path:
+            return {"ok": False, "error": "collection.nml introuvable sur la clé."}
+        try:
+            with open(nml_path, encoding="utf-8") as f:
+                nml_text = f.read()
+        except Exception as e:
+            return {"ok": False, "error": "Lecture collection.nml impossible : %s" % e}
+        idx = nml_index_locations(nml_text, volume)
+        keys, skipped = [], 0
+        for o in orphans:
+            p = o["path"]
+            raw = None
+            try:
+                d = physical_to_nml_dir(p, mount)
+                raw = idx.get((unicodedata.normalize("NFC", d),
+                               unicodedata.normalize("NFC", os.path.basename(p))))
+            except Exception:
+                raw = None
+            if raw:
+                keys.append("%s%s%s" % (volume, raw[0], raw[1]))
+            else:
+                skipped += 1   # absent de la COLLECTION Traktor
+        pl_re = re.compile(
+            r'<NODE TYPE="PLAYLIST" NAME="%s">.*?</NODE>\s*' % re.escape(ORPHANS_PLAYLIST_NAME),
+            re.S)
+        existed = bool(pl_re.search(nml_text))
+        new_text = pl_re.sub("", nml_text)
+        if keys:
+            entries = "".join(
+                '<ENTRY><PRIMARYKEY TYPE="TRACK" KEY="%s"></PRIMARYKEY>\n</ENTRY>\n' % k
+                for k in keys)
+            node = ('<NODE TYPE="PLAYLIST" NAME="%s"><PLAYLIST ENTRIES="%d" TYPE="LIST" '
+                    'UUID="%s">\n%s</PLAYLIST>\n</NODE>\n'
+                    % (ORPHANS_PLAYLIST_NAME, len(keys), uuid.uuid4().hex, entries))
+            end = new_text.rfind("</PLAYLISTS>")
+            ins = new_text.rfind("</SUBNODES>", 0, end if end >= 0 else None)
+            if ins < 0:
+                return {"ok": False, "error": "Structure PLAYLISTS inattendue dans collection.nml."}
+            new_text = new_text[:ins] + node + new_text[ins:]
+        delta = (1 if keys else 0) - (1 if existed else 0)
+        if delta:
+            m_root = re.search(r'(NAME="\$ROOT"><SUBNODES COUNT=")(\d+)(")', new_text)
+            if m_root:
+                new_text = (new_text[:m_root.start(2)] + str(int(m_root.group(2)) + delta)
+                            + new_text[m_root.end(2):])
+        if new_text == nml_text:
+            return {"ok": True, "added": len(keys), "skipped": skipped,
+                    "existed": existed, "unchanged": True, "playlist": ORPHANS_PLAYLIST_NAME}
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        nml_bak = (nml_path[:-4] if nml_path.lower().endswith(".nml") else nml_path) \
+            + "_%s.nml.bak" % ts
+        try:
+            with open(nml_bak, "w", encoding="utf-8") as f:
+                f.write(nml_text)
+        except Exception as e:
+            return {"ok": False, "error": "Sauvegarde de collection.nml impossible : %s" % e}
+        try:
+            with open(nml_path, "w", encoding="utf-8") as f:
+                f.write(new_text)
+        except Exception as e:
+            return {"ok": False, "error": "Écriture collection.nml impossible : %s" % e}
+        return {"ok": True, "added": len(keys), "skipped": skipped, "existed": existed,
+                "backup": os.path.basename(nml_bak), "playlist": ORPHANS_PLAYLIST_NAME}
 
     def dup_backup_info(self):
         """Présence et poids cumulé des backups de doublons sur la clé."""
