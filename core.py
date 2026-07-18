@@ -1038,6 +1038,23 @@ def nml_index_locations(nml_text, volume):
     return idx
 
 
+
+
+def nml_index_locations_any(nml_text):
+    """Index { (dir_nfc, file_nfc) : (dir_raw, file_raw, volume_raw) } — tous
+    volumes confondus. Indispensable en multi-plateforme : un nml écrit sur Mac
+    porte VOLUME="<label>", réécrit sur Windows VOLUME="T:" ; on ne devine pas,
+    on lit ce que le nml contient."""
+    import unicodedata
+    idx = {}
+    loc_re = re.compile(r'<LOCATION DIR="([^"]*)" FILE="([^"]*)" VOLUME="([^"]*)"')
+    for m in loc_re.finditer(nml_text):
+        dir_raw, file_raw, vol_raw = m.group(1), m.group(2), m.group(3)
+        key = (unicodedata.normalize("NFC", _xml_unescape(dir_raw)),
+               unicodedata.normalize("NFC", _xml_unescape(file_raw)))
+        idx.setdefault(key, (dir_raw, file_raw, vol_raw))
+    return idx
+
 def nml_rewrite_file(nml_text, dir_raw, old_file_raw, volume, new_file):
     """Remplace l'attribut FILE de la LOCATION ciblée (match exact unique).
     Retourne (texte, n_match). n_match != 1 => on ne touche à rien."""
@@ -2054,7 +2071,7 @@ class Core:
                 nml_text = f.read()
         except Exception as e:
             return {"ok": False, "error": "Lecture collection.nml impossible : %s" % e}
-        idx = nml_index_locations(nml_text, volume)
+        idx = nml_index_locations_any(nml_text)
         keys, skipped = [], 0
         for o in orphans:
             p = o["path"]
@@ -2066,7 +2083,8 @@ class Core:
             except Exception:
                 raw = None
             if raw:
-                keys.append("%s%s%s" % (volume, raw[0], raw[1]))
+                # le volume utilisé est celui que le nml connaît pour CE fichier
+                keys.append("%s%s%s" % (raw[2], raw[0], raw[1]))
             else:
                 skipped += 1   # absent de la COLLECTION Traktor
         pl_re = re.compile(
