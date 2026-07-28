@@ -3771,3 +3771,337 @@ class Core:
             result = {"ok": True, "n_renamed": self._ra_ok, "n_nml": self._ra_nmlupd,
                       "n_failed": self._ra_fail, "nml_backup": self._ra_nml_backup}
         return {"done": end, "total": len(sel), "finished": finished, "result": result}
+
+    # ================== FILE DE VALIDATION (onglet Tags) ==================
+    # Charge DJHELPER_REVIEW.json (racine de la clé, sinon ~/.djhelper),
+    # sert l'audio en local pour écoute immédiate, applique chaque correction
+    # dans collection.nml et alimente la table artiste→genre apprenante.
+
+    _REVIEW_RANK = {1: 51, 2: 102, 3: 153, 4: 204, 5: 255}
+    _REVIEW_COLOR = {"Club": "6", "Fond": "3", "Singalong": "4"}
+
+    def _review_queue_paths(self):
+        out = []
+        if self.usb_root:
+            out.append(os.path.join(self.usb_root, "DJHELPER_REVIEW.json"))
+        out.append(os.path.join(os.path.expanduser("~"), ".djhelper",
+                                "review_queue.json"))
+        return out
+
+    def _review_artist_table_path(self):
+        return os.path.join(os.path.expanduser("~"), ".djhelper",
+                            "artist_genres.json")
+
+    def _review_resolve_path(self, key):
+        """Clé nml dé-échappée -> chemin absolu du fichier audio (ou '')."""
+        try:
+            parts = [p for p in key.split("/:") if p]
+            if len(parts) < 2:
+                return ""
+            rel = os.path.join(*parts[1:])          # sans le VOLUME
+            if self.usb_root:
+                cand = os.path.join(self.usb_root, rel)
+                if os.path.isfile(cand):
+                    return cand
+            if self.music_folder:
+                # le DIR nml inclut souvent le dossier musique lui-même
+                mf_name = os.path.basename(self.music_folder.rstrip(os.sep))
+                sub = parts[1:]
+                if sub and sub[0] == mf_name:
+                    cand = os.path.join(self.music_folder, *sub[1:])
+                else:
+                    cand = os.path.join(self.music_folder, *sub)
+                if os.path.isfile(cand):
+                    return cand
+                # dernier recours : par nom de fichier
+                base = parts[-1]
+                for root, _dirs, files in os.walk(self.music_folder):
+                    if base in files:
+                        return os.path.join(root, base)
+        except Exception:
+            pass
+        return ""
+
+    def _review_load_queue(self):
+        import json
+        for p in self._review_queue_paths():
+            try:
+                with open(p, encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and data.get("items"):
+                    self._review_path = p
+                    self._review_data = data
+                    return True
+            except Exception:
+                continue
+        self._review_path = ""
+        self._review_data = None
+        return False
+
+    def _review_save_queue(self):
+        import json
+        try:
+            with open(self._review_path, "w", encoding="utf-8") as f:
+                json.dump(self._review_data, f, ensure_ascii=False, indent=1)
+        except Exception:
+            pass
+
+    def _review_audio_server(self):
+        """Démarre (une fois) le serveur audio local ; renvoie 'http://127.0.0.1:port'."""
+        if getattr(self, "_rv_srv", None):
+            return self._rv_base
+        import http.server, socketserver, threading, urllib.parse
+        core = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                try:
+                    q = urllib.parse.urlparse(self.path)
+                    if not q.path.startswith("/a/"):
+                        self.send_error(404); return
+                    idx = int(q.path[3:])
+                    paths = getattr(core, "_rv_audio_paths", {})
+                    p = paths.get(idx, "")
+                    if not p or not os.path.isfile(p):
+                        self.send_error(404); return
+                    size = os.path.getsize(p)
+                    mime = {".mp3": "audio/mpeg", ".m4a": "audio/mp4",
+                            ".aac": "audio/aac", ".flac": "audio/flac",
+                            ".ogg": "audio/ogg", ".wav": "audio/wav",
+                            ".aif": "audio/aiff", ".aiff": "audio/aiff"} \
+                        .get(os.path.splitext(p)[1].lower(), "application/octet-stream")
+                    rng = self.headers.get("Range")
+                    start, end = 0, size - 1
+                    if rng and rng.startswith("bytes="):
+                        try:
+                            a, b = rng[6:].split("-")
+                            if a: start = int(a)
+                            if b: end = min(int(b), size - 1)
+                        except Exception:
+                            pass
+                    length = end - start + 1
+                    self.send_response(206 if rng else 200)
+                    self.send_header("Content-Type", mime)
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Content-Length", str(length))
+                    if rng:
+                        self.send_header("Content-Range",
+                                         "bytes %d-%d/%d" % (start, end, size))
+                    self.end_headers()
+                    with open(p, "rb") as f:
+                        f.seek(start)
+                        left = length
+                        while left > 0:
+                            chunk = f.read(min(65536, left))
+                            if not chunk:
+                                break
+                            self.wfile.write(chunk)
+                            left -= len(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                except Exception:
+                    try:
+                        self.send_error(500)
+                    except Exception:
+                        pass
+
+        class Srv(socketserver.ThreadingMixIn, http.server.HTTPServer):
+            daemon_threads = True
+            allow_reuse_address = True
+
+        srv = Srv(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self._rv_srv = srv
+        self._rv_base = "http://127.0.0.1:%d" % srv.server_address[1]
+        return self._rv_base
+
+    def review_state(self):
+        """État de la file : items en attente, stats, URLs audio."""
+        if not self._review_load_queue():
+            return {"ok": True, "found": False}
+        base = self._review_audio_server()
+        self._rv_audio_paths = {}
+        items, stats, done = [], {}, 0
+        for i, it in enumerate(self._review_data.get("items", [])):
+            st = it.get("status", "pending")
+            pr = it.get("priority", "")
+            if st == "done":
+                done += 1
+                continue
+            stats[pr] = stats.get(pr, 0) + 1
+            path = self._review_resolve_path(it.get("key", ""))
+            if path:
+                self._rv_audio_paths[i] = path
+            items.append({"id": i, "artist": it.get("artist", ""),
+                          "title": it.get("title", ""), "bpm": it.get("bpm"),
+                          "genre": it.get("genre", ""), "year": it.get("year"),
+                          "energy": it.get("energy"), "mark": it.get("mark"),
+                          "priority": pr, "choices": it.get("choices") or [],
+                          "skipped": st == "skipped",
+                          "exists": bool(path),
+                          "audio": (base + "/a/%d" % i) if path else "",
+                          "path": path})
+        return {"ok": True, "found": True, "items": items, "stats": stats,
+                "done": done, "total": len(self._review_data.get("items", [])),
+                "genres": self._review_data.get("genres") or []}
+
+    def _review_nml_path(self):
+        if not self.usb_root:
+            return ""
+        try:
+            return bk_find_collection_nml(self.usb_root) or ""
+        except Exception:
+            return ""
+
+    def _review_backup_nml(self, nml_path):
+        """Copie de sécurité avant la première écriture du jour."""
+        import shutil, time
+        tag = time.strftime("%Y%m%d")
+        dst = os.path.join(os.path.dirname(nml_path),
+                           "collection.avant-validation-%s.nml" % tag)
+        if not os.path.exists(dst):
+            try:
+                shutil.copy2(nml_path, dst)
+            except Exception:
+                pass
+
+    def _review_write_nml(self, key, patch):
+        """Écrit genre/année/énergie/marqueur sur l'ENTRY correspondant à la clé.
+        GENRE vit dans INFO (jamais sur ENTRY). Renvoie (ok, err)."""
+        import re, html
+        nml_path = self._review_nml_path()
+        if not nml_path:
+            return False, "collection.nml introuvable (configurer la racine de la clé)"
+        try:
+            with open(nml_path, encoding="utf-8") as f:
+                nml = f.read()
+        except Exception as e:
+            return False, "lecture nml : %s" % e
+        self._review_backup_nml(nml_path)
+        loc_re = re.compile(r'<LOCATION DIR="([^"]*)" FILE="([^"]*)" VOLUME="([^"]*)"')
+        entry_re = re.compile(r'(<ENTRY\b[^>]*>)(.*?)(</ENTRY>)', re.S)
+        esc = lambda s: html.escape(str(s), quote=True)
+        hit = [0]
+
+        def fix_entry(m):
+            head, body, tail = m.group(1), m.group(2), m.group(3)
+            lm = loc_re.search(body)
+            if not lm:
+                return m.group(0)
+            k = (html.unescape(lm.group(3)) + html.unescape(lm.group(1))
+                 + html.unescape(lm.group(2)))
+            if k != key:
+                return m.group(0)
+            hit[0] += 1
+
+            def fix_info(im):
+                s = im.group(0)
+                g = patch.get("genre")
+                if g:
+                    s = (re.sub(r'GENRE="[^"]*"', 'GENRE="%s"' % esc(g), s)
+                         if 'GENRE="' in s else s[:-1] + ' GENRE="%s">' % esc(g))
+                y = patch.get("year")
+                if y:
+                    rd = "%d/1/1" % int(y)
+                    s = (re.sub(r'RELEASE_DATE="[^"]*"', 'RELEASE_DATE="%s"' % rd, s)
+                         if 'RELEASE_DATE="' in s else s[:-1] + ' RELEASE_DATE="%s">' % rd)
+                e = patch.get("energy")
+                if e and int(e) in self._REVIEW_RANK:
+                    rk = self._REVIEW_RANK[int(e)]
+                    s = (re.sub(r'RANKING="[^"]*"', 'RANKING="%d"' % rk, s)
+                         if 'RANKING="' in s else s[:-1] + ' RANKING="%d">' % rk)
+                if "mark" in patch:
+                    mk = patch.get("mark")
+                    if mk in self._REVIEW_COLOR:
+                        c = self._REVIEW_COLOR[mk]
+                        s = (re.sub(r'COLOR="[^"]*"', 'COLOR="%s"' % c, s)
+                             if 'COLOR="' in s else s[:-1] + ' COLOR="%s">' % c)
+                        s = (re.sub(r'COMMENT="[^"]*"', 'COMMENT="%s"' % esc(mk), s)
+                             if 'COMMENT="' in s else s[:-1] + ' COMMENT="%s">' % esc(mk))
+                    else:
+                        s = re.sub(r'\s*COLOR="[^"]*"', '', s)
+                        s = re.sub(r'\s*COMMENT="[^"]*"', '', s)
+                return s
+
+            body = re.sub(r'<INFO\b[^>]*>', fix_info, body, count=1)
+            return head + body + tail
+
+        out = entry_re.sub(fix_entry, nml)
+        if not hit[0]:
+            return False, "morceau introuvable dans collection.nml"
+        try:
+            with open(nml_path, "w", encoding="utf-8") as f:
+                f.write(out)
+        except Exception as e:
+            return False, "écriture nml : %s" % e
+        return True, ""
+
+    def _review_learn_artist(self, artist, genre):
+        """Alimente la table artiste→genre (source: validation utilisateur)."""
+        import json, re, unicodedata
+        if not artist or not genre:
+            return
+        a = artist.split("/")[0].split(",")[0].split(" feat")[0].strip()
+        a = unicodedata.normalize("NFD", a).encode("ascii", "ignore").decode()
+        a = re.sub(r"\s+", " ", a).strip().lower()
+        if not a:
+            return
+        p = self._review_artist_table_path()
+        try:
+            with open(p, encoding="utf-8") as f:
+                table = json.load(f)
+        except Exception:
+            table = {}
+        ent = table.get(a) or {"genre": genre, "count": 0, "source": "user"}
+        if ent.get("genre") == genre:
+            ent["count"] = ent.get("count", 0) + 1
+        else:
+            ent = {"genre": genre, "count": 1, "source": "user"}
+        table[a] = ent
+        try:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(table, f, ensure_ascii=False, indent=1)
+        except Exception:
+            pass
+
+    def review_apply(self, item_id, patch):
+        """Valide un item : écrit le nml, apprend l'artiste, marque done."""
+        if getattr(self, "_review_data", None) is None:
+            if not self._review_load_queue():
+                return {"ok": False, "error": "file introuvable"}
+        try:
+            it = self._review_data["items"][int(item_id)]
+        except Exception:
+            return {"ok": False, "error": "item inconnu"}
+        patch = patch or {}
+        ok, err = self._review_write_nml(it.get("key", ""), patch)
+        if not ok:
+            return {"ok": False, "error": err}
+        if patch.get("genre"):
+            it["genre"] = patch["genre"]
+            self._review_learn_artist(it.get("artist", ""), patch["genre"])
+        if patch.get("year"):
+            it["year"] = patch["year"]
+        if patch.get("energy"):
+            it["energy"] = patch["energy"]
+        if "mark" in patch:
+            it["mark"] = patch.get("mark")
+        it["status"] = "done"
+        self._review_save_queue()
+        return {"ok": True}
+
+    def review_skip(self, item_id):
+        if getattr(self, "_review_data", None) is None:
+            if not self._review_load_queue():
+                return {"ok": False}
+        try:
+            self._review_data["items"][int(item_id)]["status"] = "skipped"
+            self._review_save_queue()
+            return {"ok": True}
+        except Exception:
+            return {"ok": False}

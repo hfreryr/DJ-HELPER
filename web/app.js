@@ -29,6 +29,7 @@ function showView(v, name){
   if (v === 'soon' && name) $('soon-title').textContent = name;
   if (v === 'sync') renderSyncSource();
   if (v === 'home') refreshHome();
+  if (v === 'tags') loadReview();
   if (v === 'dup' && scannedOnce && !dupShown) scanDuplicates();
   if (v === 'integ') updateIntegAckeyHint();
   document.querySelector('.main').scrollTop = 0;
@@ -1420,6 +1421,201 @@ document.addEventListener('click', (e) => {
   }
 });
 setInterval(() => { if (API) refreshStatus(); }, 5000);
+
+// ---------- File de validation (onglet Tags) ----------
+let rvItems = [];        // items en attente (non validés)
+let rvIdx = 0;           // position dans la liste filtrée
+let rvFilter = '';       // priorité sélectionnée ('' = toutes)
+let rvGenres = [];       // vocabulaire complet des genres
+let rvLoaded = false;
+
+function rvFiltered(){
+  return rvFilter ? rvItems.filter(i => i.priority === rvFilter) : rvItems;
+}
+
+async function loadReview(){
+  if (!API) return;
+  $('review-loading').style.display = 'block';
+  $('review-main').style.display = 'none';
+  $('review-none').style.display = 'none';
+  $('review-alldone').style.display = 'none';
+  let st = null;
+  try { st = await API.review_state(); } catch (e){ st = null; }
+  $('review-loading').style.display = 'none';
+  if (!st || !st.ok || !st.found){
+    $('review-none').style.display = 'block';
+    rvLoaded = false;
+    return;
+  }
+  rvGenres = st.genres || [];
+  rvItems = (st.items || []);
+  rvLoaded = true;
+  if (!rvItems.length){
+    $('review-alldone').style.display = 'block';
+    return;
+  }
+  // reprendre sur le premier non passé, sinon le premier
+  rvIdx = 0;
+  const flt = rvFiltered();
+  const firstFresh = flt.findIndex(i => !i.skipped);
+  if (firstFresh > 0) rvIdx = firstFresh;
+  rvRenderPrios(st);
+  rvRenderItem(st.done, st.total);
+  $('review-main').style.display = 'block';
+}
+
+function rvRenderPrios(st){
+  const box = $('rv-prios');
+  box.innerHTML = '';
+  const all = document.createElement('span');
+  all.className = 'rv-prio-chip' + (rvFilter === '' ? ' active' : '');
+  all.textContent = 'Tout (' + rvItems.length + ')';
+  all.addEventListener('click', () => { rvFilter = ''; rvIdx = 0; rvRenderPrios(st); rvRenderItem(st.done, st.total); });
+  box.appendChild(all);
+  Object.keys(st.stats || {}).forEach(pr => {
+    const c = document.createElement('span');
+    c.className = 'rv-prio-chip' + (rvFilter === pr ? ' active' : '');
+    c.textContent = pr + ' (' + st.stats[pr] + ')';
+    c.addEventListener('click', () => { rvFilter = pr; rvIdx = 0; rvRenderPrios(st); rvRenderItem(st.done, st.total); });
+    box.appendChild(c);
+  });
+}
+
+function rvCurrent(){
+  const flt = rvFiltered();
+  if (!flt.length) return null;
+  if (rvIdx >= flt.length) rvIdx = 0;
+  return flt[rvIdx];
+}
+
+function rvRenderItem(done, total){
+  const it = rvCurrent();
+  const doneN = (typeof done === 'number') ? done : (total - rvItems.length);
+  const totN = total || (doneN + rvItems.length);
+  $('rv-fill').style.width = totN ? Math.round(100 * doneN / totN) + '%' : '0%';
+  $('rv-chip').textContent = doneN + ' / ' + totN;
+  if (!it){
+    $('review-main').style.display = 'none';
+    $('review-alldone').style.display = 'block';
+    return;
+  }
+  $('rv-prio').textContent = it.priority;
+  $('rv-artist').textContent = it.artist || '—';
+  $('rv-title').textContent = it.title || '—';
+  $('rv-bpm').textContent = it.bpm || '—';
+  $('rv-genre').textContent = it.genre || '—';
+  $('rv-year').textContent = it.year || '—';
+  $('rv-yearlab').style.display = '';
+  // audio
+  const au = $('rv-audio');
+  au.pause();
+  if (it.exists && it.audio){
+    au.src = it.audio; au.style.display = '';
+    $('rv-missing').style.display = 'none';
+  } else {
+    au.removeAttribute('src'); au.style.display = 'none';
+    $('rv-missing').style.display = 'block';
+  }
+  // boutons de choix rapides
+  const box = $('rv-choices');
+  box.innerHTML = '';
+  (it.choices || []).forEach((g, i) => {
+    const b = document.createElement('button');
+    b.className = 'rv-choice';
+    b.innerHTML = '<span class="k">' + (i + 1) + '</span>' + g;
+    b.addEventListener('click', () => rvApply({ genre: g }));
+    box.appendChild(b);
+  });
+  // select de tous les genres
+  const sel = $('rv-genre-select');
+  sel.innerHTML = '<option value="">Autre genre…</option>' +
+    rvGenres.map(g => '<option>' + g + '</option>').join('');
+  sel.value = '';
+  // année
+  $('rv-year-input').value = '';
+  $('rv-year-input').placeholder = it.year ? String(it.year) : 'Année';
+}
+
+function rvAdvance(removed){
+  const flt = rvFiltered();
+  if (removed){
+    // l'item courant a été retiré de rvItems -> rvIdx pointe déjà le suivant
+    if (rvIdx >= flt.length) rvIdx = 0;
+  } else {
+    rvIdx = flt.length ? (rvIdx + 1) % flt.length : 0;
+  }
+}
+
+async function rvApply(patch){
+  const it = rvCurrent();
+  if (!it) return;
+  const sel = $('rv-genre-select').value;
+  const yr = parseInt($('rv-year-input').value, 10);
+  patch = patch || {};
+  if (!patch.genre && sel) patch.genre = sel;
+  if (!patch.genre && it.genre) patch.genre = it.genre;   // "valider tel quel"
+  if (yr && yr > 1900) patch.year = yr;
+  let r = null;
+  try { r = await API.review_apply(it.id, patch); } catch (e){ r = null; }
+  if (!r || !r.ok){
+    alert('Écriture impossible : ' + ((r && r.error) || 'erreur inconnue'));
+    return;
+  }
+  rvItems = rvItems.filter(x => x.id !== it.id);
+  rvAdvance(true);
+  rvRefreshChips();
+}
+
+async function rvSkip(){
+  const it = rvCurrent();
+  if (!it) return;
+  try { await API.review_skip(it.id); } catch (e){}
+  it.skipped = true;
+  rvAdvance(false);
+  rvRefreshChips();
+}
+
+function rvRefreshChips(){
+  // recompose stats locales puis re-rend
+  const stats = {};
+  rvItems.forEach(i => { stats[i.priority] = (stats[i.priority] || 0) + 1; });
+  if (rvFilter && !stats[rvFilter]) rvFilter = '';
+  rvRenderPrios({ stats });
+  rvRenderItem();
+}
+
+// raccourcis clavier — un seul handler global, actif uniquement sur l'onglet Tags
+document.addEventListener('keydown', (e) => {
+  if (!rvLoaded) return;
+  if (!views.tags.classList.contains('show')) return;
+  if ($('review-main').style.display === 'none') return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'){
+    if (e.key === 'Enter'){ e.preventDefault(); rvApply({}); }
+    return;
+  }
+  const it = rvCurrent();
+  if (!it) return;
+  if (e.key === ' '){
+    e.preventDefault();
+    const au = $('rv-audio');
+    if (au.src){ au.paused ? au.play() : au.pause(); }
+  } else if (e.key >= '1' && e.key <= '9'){
+    const i = parseInt(e.key, 10) - 1;
+    if (it.choices && it.choices[i]) rvApply({ genre: it.choices[i] });
+  } else if (e.key === 'Enter'){
+    rvApply({});
+  } else if (e.key === 'ArrowRight'){
+    rvSkip();
+  }
+});
+
+$('rv-ok').addEventListener('click', () => rvApply({}));
+$('rv-skip').addEventListener('click', rvSkip);
+$('rv-reveal').addEventListener('click', async () => {
+  const it = rvCurrent();
+  if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
+});
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
