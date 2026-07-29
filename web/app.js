@@ -1422,63 +1422,82 @@ document.addEventListener('click', (e) => {
 });
 setInterval(() => { if (API) refreshStatus(); }, 5000);
 
-// ---------- File de validation (onglet Tags) ----------
-let rvItems = [];        // items en attente (non validés)
+// ---------- Nettoyer ma bibliothèque (onglet Tags) ----------
+let rvItems = [];        // items restants (non validés)
 let rvIdx = 0;           // position dans la liste filtrée
 let rvFilter = '';       // priorité sélectionnée ('' = toutes)
 let rvGenres = [];       // vocabulaire complet des genres
-let rvLoaded = false;
+let rvLoaded = false;    // un scan a eu lieu et la file est affichée
+let rvDone = 0;          // validés depuis le scan
+let rvTotal = 0;         // total au moment du scan
 
 function rvFiltered(){
   return rvFilter ? rvItems.filter(i => i.priority === rvFilter) : rvItems;
 }
 
-async function loadReview(){
+function loadReview(){
+  // à l'ouverture de l'onglet : si un scan a déjà eu lieu, il reste affiché.
+  // Sinon, on attend le clic sur « Analyser ma bibliothèque ».
+}
+
+async function rvScan(){
   if (!API) return;
   $('review-loading').style.display = 'block';
+  $('review-error').style.display = 'none';
+  $('rv-summary').style.display = 'none';
   $('review-main').style.display = 'none';
-  $('review-none').style.display = 'none';
   $('review-alldone').style.display = 'none';
-  let st = null;
-  try { st = await API.review_state(); } catch (e){ st = null; }
+  let sc = null, st = null;
+  try {
+    sc = await API.review_scan();
+    if (sc && sc.ok) st = await API.review_state();
+  } catch (e){}
   $('review-loading').style.display = 'none';
-  if (!st || !st.ok || !st.found){
-    $('review-none').style.display = 'block';
+  if (!sc || !sc.ok || !st || !st.ok){
+    const el = $('review-error');
+    el.textContent = (sc && sc.error) || (st && st.error) || 'Analyse impossible.';
+    el.style.display = 'block';
     rvLoaded = false;
     return;
   }
   rvGenres = st.genres || [];
-  rvItems = (st.items || []);
+  rvItems = st.items || [];
+  rvDone = 0;
+  rvTotal = rvItems.length;
+  rvFilter = '';
+  rvIdx = 0;
   rvLoaded = true;
+  $('rv-chip').textContent = sc.complete + ' complets · ' + sc.todo + ' à corriger';
   if (!rvItems.length){
     $('review-alldone').style.display = 'block';
     return;
   }
-  // reprendre sur le premier non passé, sinon le premier
-  rvIdx = 0;
-  const flt = rvFiltered();
-  const firstFresh = flt.findIndex(i => !i.skipped);
+  const firstFresh = rvItems.findIndex(i => !i.skipped);
   if (firstFresh > 0) rvIdx = firstFresh;
-  rvRenderPrios(st);
-  rvRenderItem(st.done, st.total);
+  rvRenderSummary();
+  rvRenderItem();
+  $('rv-summary').style.display = '';
   $('review-main').style.display = 'block';
 }
 
-function rvRenderPrios(st){
-  const box = $('rv-prios');
+function rvRenderSummary(){
+  const box = $('rv-summary');
   box.innerHTML = '';
-  const all = document.createElement('span');
-  all.className = 'rv-prio-chip' + (rvFilter === '' ? ' active' : '');
-  all.textContent = 'Tout (' + rvItems.length + ')';
-  all.addEventListener('click', () => { rvFilter = ''; rvIdx = 0; rvRenderPrios(st); rvRenderItem(st.done, st.total); });
-  box.appendChild(all);
-  Object.keys(st.stats || {}).forEach(pr => {
-    const c = document.createElement('span');
-    c.className = 'rv-prio-chip' + (rvFilter === pr ? ' active' : '');
-    c.textContent = pr + ' (' + st.stats[pr] + ')';
-    c.addEventListener('click', () => { rvFilter = pr; rvIdx = 0; rvRenderPrios(st); rvRenderItem(st.done, st.total); });
-    box.appendChild(c);
-  });
+  const stats = {};
+  rvItems.forEach(i => { stats[i.priority] = (stats[i.priority] || 0) + 1; });
+  const mk = (label, n, prio) => {
+    const t = document.createElement('div');
+    t.className = 'tile rv-tile' + (rvFilter === prio ? ' active' : '');
+    t.innerHTML = '<div class="lab">' + label + '</div><div class="num warn">' + n + '</div>';
+    t.addEventListener('click', () => {
+      rvFilter = (rvFilter === prio) ? '' : prio;
+      rvIdx = 0;
+      rvRenderSummary();
+      rvRenderItem();
+    });
+    box.appendChild(t);
+  };
+  Object.keys(stats).forEach(pr => mk(pr, stats[pr], pr));
 }
 
 function rvCurrent(){
@@ -1488,25 +1507,22 @@ function rvCurrent(){
   return flt[rvIdx];
 }
 
-function rvRenderItem(done, total){
+function rvRenderItem(){
   const it = rvCurrent();
-  const doneN = (typeof done === 'number') ? done : (total - rvItems.length);
-  const totN = total || (doneN + rvItems.length);
-  $('rv-fill').style.width = totN ? Math.round(100 * doneN / totN) + '%' : '0%';
-  $('rv-chip').textContent = doneN + ' / ' + totN;
+  $('rv-fill').style.width = rvTotal ? Math.round(100 * rvDone / rvTotal) + '%' : '0%';
   if (!it){
     $('review-main').style.display = 'none';
-    $('review-alldone').style.display = 'block';
+    if (!rvItems.length) $('review-alldone').style.display = 'block';
     return;
   }
+  $('review-alldone').style.display = 'none';
+  $('review-main').style.display = 'block';
   $('rv-prio').textContent = it.priority;
   $('rv-artist').textContent = it.artist || '—';
   $('rv-title').textContent = it.title || '—';
   $('rv-bpm').textContent = it.bpm || '—';
   $('rv-genre').textContent = it.genre || '—';
   $('rv-year').textContent = it.year || '—';
-  $('rv-yearlab').style.display = '';
-  // audio
   const au = $('rv-audio');
   au.pause();
   if (it.exists && it.audio){
@@ -1516,7 +1532,6 @@ function rvRenderItem(done, total){
     au.removeAttribute('src'); au.style.display = 'none';
     $('rv-missing').style.display = 'block';
   }
-  // boutons de choix rapides
   const box = $('rv-choices');
   box.innerHTML = '';
   (it.choices || []).forEach((g, i) => {
@@ -1526,24 +1541,12 @@ function rvRenderItem(done, total){
     b.addEventListener('click', () => rvApply({ genre: g }));
     box.appendChild(b);
   });
-  // select de tous les genres
   const sel = $('rv-genre-select');
   sel.innerHTML = '<option value="">Autre genre…</option>' +
     rvGenres.map(g => '<option>' + g + '</option>').join('');
   sel.value = '';
-  // année
   $('rv-year-input').value = '';
   $('rv-year-input').placeholder = it.year ? String(it.year) : 'Année';
-}
-
-function rvAdvance(removed){
-  const flt = rvFiltered();
-  if (removed){
-    // l'item courant a été retiré de rvItems -> rvIdx pointe déjà le suivant
-    if (rvIdx >= flt.length) rvIdx = 0;
-  } else {
-    rvIdx = flt.length ? (rvIdx + 1) % flt.length : 0;
-  }
 }
 
 async function rvApply(patch){
@@ -1553,8 +1556,12 @@ async function rvApply(patch){
   const yr = parseInt($('rv-year-input').value, 10);
   patch = patch || {};
   if (!patch.genre && sel) patch.genre = sel;
-  if (!patch.genre && it.genre) patch.genre = it.genre;   // "valider tel quel"
+  if (!patch.genre && it.genre) patch.genre = it.genre;   // « valider tel quel »
   if (yr && yr > 1900) patch.year = yr;
+  if (!patch.genre && !patch.year){
+    alert('Choisis un genre ou saisis une année avant de valider.');
+    return;
+  }
   let r = null;
   try { r = await API.review_apply(it.id, patch); } catch (e){ r = null; }
   if (!r || !r.ok){
@@ -1562,8 +1569,12 @@ async function rvApply(patch){
     return;
   }
   rvItems = rvItems.filter(x => x.id !== it.id);
-  rvAdvance(true);
-  rvRefreshChips();
+  rvDone += 1;
+  const flt = rvFiltered();
+  if (rvIdx >= flt.length) rvIdx = 0;
+  if (rvFilter && !flt.length) rvFilter = '';
+  rvRenderSummary();
+  rvRenderItem();
 }
 
 async function rvSkip(){
@@ -1571,20 +1582,12 @@ async function rvSkip(){
   if (!it) return;
   try { await API.review_skip(it.id); } catch (e){}
   it.skipped = true;
-  rvAdvance(false);
-  rvRefreshChips();
-}
-
-function rvRefreshChips(){
-  // recompose stats locales puis re-rend
-  const stats = {};
-  rvItems.forEach(i => { stats[i.priority] = (stats[i.priority] || 0) + 1; });
-  if (rvFilter && !stats[rvFilter]) rvFilter = '';
-  rvRenderPrios({ stats });
+  const flt = rvFiltered();
+  rvIdx = flt.length ? (rvIdx + 1) % flt.length : 0;
   rvRenderItem();
 }
 
-// raccourcis clavier — un seul handler global, actif uniquement sur l'onglet Tags
+// raccourcis clavier — actifs uniquement sur l'onglet Tags, file affichée
 document.addEventListener('keydown', (e) => {
   if (!rvLoaded) return;
   if (!views.tags.classList.contains('show')) return;
@@ -1610,6 +1613,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+$('rv-scan').addEventListener('click', rvScan);
 $('rv-ok').addEventListener('click', () => rvApply({}));
 $('rv-skip').addEventListener('click', rvSkip);
 $('rv-reveal').addEventListener('click', async () => {

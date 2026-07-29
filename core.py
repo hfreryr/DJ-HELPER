@@ -3781,9 +3781,17 @@ class Core:
     _REVIEW_COLOR = {"Club": "6", "Fond": "3", "Singalong": "4"}
 
     def _review_queue_paths(self):
+        import glob
         out = []
         if self.usb_root:
+            # nom canonique, puis variantes fréquentes après téléchargement :
+            # espace au lieu d'underscore, suffixe " (1)", casse différente
             out.append(os.path.join(self.usb_root, "DJHELPER_REVIEW.json"))
+            for pat in ("DJHELPER*REVIEW*.json", "djhelper*review*.json",
+                        "DJHelper*Review*.json"):
+                for p in sorted(glob.glob(os.path.join(self.usb_root, pat))):
+                    if p not in out:
+                        out.append(p)
         out.append(os.path.join(os.path.expanduser("~"), ".djhelper",
                                 "review_queue.json"))
         return out
@@ -3822,9 +3830,13 @@ class Core:
             pass
         return ""
 
-    def _review_load_queue(self):
+    def _review_load_file(self):
+        """Fichier de propositions (optionnel) : DJHELPER_REVIEW.json."""
         import json
+        self._review_error = ""
         for p in self._review_queue_paths():
+            if not os.path.isfile(p):
+                continue
             try:
                 with open(p, encoding="utf-8") as f:
                     data = json.load(f)
@@ -3832,19 +3844,53 @@ class Core:
                     self._review_path = p
                     self._review_data = data
                     return True
-            except Exception:
-                continue
+                self._review_error = "%s : format inattendu" % os.path.basename(p)
+            except Exception as e:
+                self._review_error = "%s : %s" % (os.path.basename(p), str(e)[:80])
         self._review_path = ""
         self._review_data = None
         return False
 
-    def _review_save_queue(self):
+    def _review_save_file(self):
         import json
+        if not getattr(self, "_review_path", "") or self._review_data is None:
+            return
         try:
             with open(self._review_path, "w", encoding="utf-8") as f:
                 json.dump(self._review_data, f, ensure_ascii=False, indent=1)
         except Exception:
             pass
+
+    def _review_skips_path(self):
+        return os.path.join(os.path.expanduser("~"), ".djhelper",
+                            "review_skips.json")
+
+    def _review_load_skips(self):
+        import json
+        try:
+            with open(self._review_skips_path(), encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception:
+            return set()
+
+    def _review_save_skips(self, skips):
+        import json
+        try:
+            p = self._review_skips_path()
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(sorted(skips), f, ensure_ascii=False)
+        except Exception:
+            pass
+
+    _REVIEW_GENRES = ["Pop", "Rock", "Chanson FR", "Disco/Funk/Soul",
+                      "Dance-Eurodance", "House", "House deep", "House tech",
+                      "House disco", "French touch", "EDM/Big room", "Techno",
+                      "Techno acid", "Techno hard", "Techno berlin",
+                      "Techno breizh", "Rap/Hip-hop", "Latino/Reggaeton",
+                      "Reggae/Dancehall", "Autre"]
+    _REVIEW_TECHNO_CHOICES = ["Techno hard", "Techno acid", "Techno berlin",
+                              "Techno breizh", "Techno", "Autre"]
 
     def _review_audio_server(self):
         """Démarre (une fois) le serveur audio local ; renvoie 'http://127.0.0.1:port'."""
@@ -3919,35 +3965,125 @@ class Core:
         self._rv_base = "http://127.0.0.1:%d" % srv.server_address[1]
         return self._rv_base
 
+    def review_scan(self):
+        """Scan natif : lit collection.nml et liste ce qui doit être corrigé.
+        Fusionne les propositions du fichier DJHELPER_REVIEW.json s'il existe."""
+        import xml.etree.ElementTree as ET
+        nml_path = self._review_nml_path()
+        if not nml_path:
+            return {"ok": False,
+                    "error": "collection.nml introuvable — configure la racine de ta clé sur l'accueil"}
+        try:
+            root = ET.parse(nml_path).getroot()
+        except Exception as e:
+            return {"ok": False, "error": "lecture de collection.nml : %s" % str(e)[:90]}
+        coll = root.find("COLLECTION")
+        if coll is None:
+            return {"ok": False, "error": "collection.nml sans section COLLECTION"}
+
+        # propositions du fichier (optionnel), indexées par clé
+        props = {}
+        if self._review_load_file():
+            for i, it in enumerate(self._review_data.get("items", [])):
+                if it.get("status") == "done":
+                    continue
+                props[it.get("key", "")] = (i, it)
+
+        skips = self._review_load_skips()
+        items, complete = [], 0
+        for e in coll.findall("ENTRY"):
+            loc = e.find("LOCATION")
+            if loc is None:
+                continue
+            key = ((loc.get("VOLUME") or "") + (loc.get("DIR") or "")
+                   + (loc.get("FILE") or ""))
+            info = e.find("INFO")
+            genre = (info.get("GENRE") or "").strip() if info is not None else ""
+            rdate = (info.get("RELEASE_DATE") or "").strip() if info is not None else ""
+            year = None
+            if rdate[:4].isdigit():
+                year = int(rdate[:4])
+            tempo = e.find("TEMPO")
+            bpm = 0
+            try:
+                bpm = round(float(tempo.get("BPM"))) if tempo is not None and tempo.get("BPM") else 0
+            except Exception:
+                pass
+            artist = e.get("ARTIST") or ""
+            title = e.get("TITLE") or ""
+
+            prio = None
+            choices = []
+            if not genre:
+                prio = "GENRE MANQUANT"
+            elif genre == "Techno":
+                prio = "SOUS-GENRE TECHNO"
+                choices = list(self._REVIEW_TECHNO_CHOICES)
+            elif not year:
+                prio = "ANNÉE MANQUANTE"
+
+            fi = props.pop(key, None)
+            if fi is not None:
+                _idx, p = fi
+                # le fichier apporte des propositions ; l'état réel du nml
+                # (priorité native) prime quand il existe
+                if prio is None:
+                    prio = p.get("priority") or "À VÉRIFIER"
+                if p.get("choices") and not choices:
+                    choices = p["choices"]
+                if p.get("genre") and (not genre or genre == "Techno"):
+                    genre = p["genre"]
+                if not year and p.get("year"):
+                    year = p["year"]
+                file_index = _idx
+            else:
+                file_index = None
+
+            if prio is None:
+                complete += 1
+                continue
+            items.append({"key": key, "artist": artist, "title": title,
+                          "bpm": bpm, "genre": genre, "year": year,
+                          "priority": prio, "choices": choices,
+                          "file_index": file_index,
+                          "skipped": key in skips})
+
+        order = {"SOUS-GENRE TECHNO": 0, "ACID À CONFIRMER": 1,
+                 "GENRE MANQUANT": 2, "ANNÉE MANQUANTE": 3,
+                 "ANNÉE INTROUVABLE": 3, "GENRE": 4, "MINEUR": 5,
+                 "À VÉRIFIER": 6}
+        items.sort(key=lambda i: (1 if i["skipped"] else 0,
+                                  order.get(i["priority"], 9),
+                                  -(i["bpm"] or 0), i["artist"].lower()))
+        self._rv_items = items
+        return {"ok": True, "complete": complete, "todo": len(items)}
+
     def review_state(self):
-        """État de la file : items en attente, stats, URLs audio."""
-        if not self._review_load_queue():
-            return {"ok": True, "found": False}
+        """État de la file après scan : items, stats, URLs audio."""
+        if not getattr(self, "_rv_items", None):
+            r = self.review_scan()
+            if not r.get("ok"):
+                return {"ok": False, "error": r.get("error", "")}
         base = self._review_audio_server()
         self._rv_audio_paths = {}
-        items, stats, done = [], {}, 0
-        for i, it in enumerate(self._review_data.get("items", [])):
-            st = it.get("status", "pending")
-            pr = it.get("priority", "")
-            if st == "done":
-                done += 1
+        out, stats = [], {}
+        for i, it in enumerate(self._rv_items):
+            if it.get("done"):
                 continue
-            stats[pr] = stats.get(pr, 0) + 1
-            path = self._review_resolve_path(it.get("key", ""))
+            stats[it["priority"]] = stats.get(it["priority"], 0) + 1
+            path = self._review_resolve_path(it["key"])
             if path:
                 self._rv_audio_paths[i] = path
-            items.append({"id": i, "artist": it.get("artist", ""),
-                          "title": it.get("title", ""), "bpm": it.get("bpm"),
-                          "genre": it.get("genre", ""), "year": it.get("year"),
-                          "energy": it.get("energy"), "mark": it.get("mark"),
-                          "priority": pr, "choices": it.get("choices") or [],
-                          "skipped": st == "skipped",
-                          "exists": bool(path),
-                          "audio": (base + "/a/%d" % i) if path else "",
-                          "path": path})
-        return {"ok": True, "found": True, "items": items, "stats": stats,
-                "done": done, "total": len(self._review_data.get("items", [])),
-                "genres": self._review_data.get("genres") or []}
+            out.append({"id": i, "artist": it["artist"], "title": it["title"],
+                        "bpm": it["bpm"], "genre": it["genre"],
+                        "year": it["year"], "priority": it["priority"],
+                        "choices": it["choices"], "skipped": it["skipped"],
+                        "exists": bool(path),
+                        "audio": (base + "/a/%d" % i) if path else "",
+                        "path": path})
+        return {"ok": True, "found": True, "items": out, "stats": stats,
+                "genres": list(self._REVIEW_GENRES),
+                "file_hint": bool(getattr(self, "_review_data", None))}
 
     def _review_nml_path(self):
         if not self.usb_root:
@@ -4070,38 +4206,41 @@ class Core:
             pass
 
     def review_apply(self, item_id, patch):
-        """Valide un item : écrit le nml, apprend l'artiste, marque done."""
-        if getattr(self, "_review_data", None) is None:
-            if not self._review_load_queue():
-                return {"ok": False, "error": "file introuvable"}
+        """Valide un item : écrit le nml, apprend l'artiste, retire de la file."""
+        items = getattr(self, "_rv_items", None)
         try:
-            it = self._review_data["items"][int(item_id)]
+            it = items[int(item_id)]
         except Exception:
-            return {"ok": False, "error": "item inconnu"}
+            return {"ok": False, "error": "item inconnu — relance l'analyse"}
         patch = patch or {}
-        ok, err = self._review_write_nml(it.get("key", ""), patch)
+        ok, err = self._review_write_nml(it["key"], patch)
         if not ok:
             return {"ok": False, "error": err}
         if patch.get("genre"):
-            it["genre"] = patch["genre"]
             self._review_learn_artist(it.get("artist", ""), patch["genre"])
-        if patch.get("year"):
-            it["year"] = patch["year"]
-        if patch.get("energy"):
-            it["energy"] = patch["energy"]
-        if "mark" in patch:
-            it["mark"] = patch.get("mark")
-        it["status"] = "done"
-        self._review_save_queue()
+        # provenance fichier : marquer done pour ne plus le proposer
+        fi = it.get("file_index")
+        if fi is not None and getattr(self, "_review_data", None):
+            try:
+                self._review_data["items"][fi]["status"] = "done"
+                self._review_save_file()
+            except Exception:
+                pass
+        it["done"] = True
+        skips = self._review_load_skips()
+        if it["key"] in skips:
+            skips.discard(it["key"])
+            self._review_save_skips(skips)
         return {"ok": True}
 
     def review_skip(self, item_id):
-        if getattr(self, "_review_data", None) is None:
-            if not self._review_load_queue():
-                return {"ok": False}
+        items = getattr(self, "_rv_items", None)
         try:
-            self._review_data["items"][int(item_id)]["status"] = "skipped"
-            self._review_save_queue()
-            return {"ok": True}
+            it = items[int(item_id)]
         except Exception:
             return {"ok": False}
+        it["skipped"] = True
+        skips = self._review_load_skips()
+        skips.add(it["key"])
+        self._review_save_skips(skips)
+        return {"ok": True}

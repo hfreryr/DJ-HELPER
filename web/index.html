@@ -268,20 +268,25 @@
       <div class="h1">Tags &amp; nommage</div>
       <div class="h1-sub">Corrige les métadonnées et les noms de fichiers de ta bibliothèque</div>
 
-      <!-- ===== File de validation ===== -->
+      <!-- ===== Nettoyer ma bibliothèque ===== -->
       <div class="card" style="margin-top:24px;" id="review-card">
-        <div class="card-title">File de validation<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Les morceaux dont le classement (genre, sous-genre, année) est incertain arrivent ici. Écoute l'extrait puis corrige en un clic — chaque validation est écrite dans <code>collection.nml</code> (sauvegarde automatique avant la première écriture du jour) et mémorisée pour classer automatiquement les prochains morceaux du même artiste. <b>Ferme Traktor avant de valider</b> : il écrase le fichier à sa fermeture.</span></span></div>
-        <div class="card-sub">Écoute et corrige en un clic les morceaux au classement incertain</div>
+        <div class="card-title">Nettoyer ma bibliothèque<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Analyse ta collection Traktor et repère ce qui manque : genre absent, sous-genre techno à préciser, année absente. Tu corriges ensuite en écoutant chaque morceau — un clic par correction, écrite aussitôt dans <code>collection.nml</code> (sauvegarde automatique avant la première écriture du jour) et mémorisée pour classer les prochains morceaux du même artiste. <b>Ferme Traktor avant de corriger</b> : il écrase le fichier à sa fermeture.</span></span></div>
+        <div class="card-sub">Analyse ta collection et corrige ce qui manque : genre, sous-genre, année</div>
 
-        <div class="empty" id="review-none" style="display:none;">Aucune validation en attente. La file apparaîtra ici après un enrichissement.</div>
-        <div class="empty" id="review-alldone" style="display:none;">🎉 File terminée — tout est validé.</div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="rv-scan">Analyser ma bibliothèque</button>
+          <span class="count-chip" id="rv-chip">—</span>
+        </div>
+        <div class="loading" id="review-loading" style="display:none;"><span class="spinner"></span>Analyse de la collection…</div>
+        <div class="empty" id="review-error" style="display:none;"></div>
+
+        <div class="tiles" id="rv-summary" style="display:none; margin-top:16px;"></div>
+        <div class="empty" id="review-alldone" style="display:none;">🎉 Rien à corriger — ta bibliothèque est propre.</div>
 
         <div id="review-main" style="display:none;">
           <div class="toolbar" style="margin-top:14px; align-items:center;">
             <div class="rv-progress"><div class="rv-fill" id="rv-fill"></div></div>
-            <span class="count-chip" id="rv-chip">—</span>
           </div>
-          <div class="rv-prios" id="rv-prios"></div>
 
           <div class="rv-item">
             <div class="rv-prio-badge" id="rv-prio"></div>
@@ -303,7 +308,6 @@
             <div class="rv-keys">Raccourcis : <b>espace</b> lecture · <b>1</b>-<b>6</b> choix · <b>Entrée</b> valider · <b>→</b> passer</div>
           </div>
         </div>
-        <div class="loading" id="review-loading" style="display:none;"><span class="spinner"></span>Chargement de la file…</div>
       </div>
 
       <details class="adv-tools" id="tags-advanced">

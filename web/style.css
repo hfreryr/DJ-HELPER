@@ -424,3 +424,7 @@ body{
   border:0.5px solid var(--border); border-radius:8px; padding:8px 10px; font-size:13px;}
 .rv-keys{margin-top:12px; color:var(--text-3); font-size:12px;}
 .rv-keys b{color:var(--text-2); font-weight:600;}
+.rv-tile{cursor:pointer; transition:background .12s, border-color .12s;}
+.rv-tile:hover{background:var(--bg-hover);}
+.rv-tile.active{border-color:var(--accent);}
+.rv-tile .num{cursor:pointer;}
