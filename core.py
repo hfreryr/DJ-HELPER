@@ -4523,18 +4523,28 @@ class Core:
                 table = json.load(f)
         except Exception:
             table = {}
-        ent = table.get(a) or {"genre": genre, "count": 0, "source": "user"}
-        if ent.get("genre") == genre:
-            ent["count"] = ent.get("count", 0) + 1
-        else:
-            ent = {"genre": genre, "count": 1, "source": "user"}
-        table[a] = ent
+        ent = table.get(a) or {}
+        genres = dict(ent.get("genres") or {})
+        if not genres and ent.get("genre"):        # ancien format
+            genres[ent["genre"]] = ent.get("count", 1)
+        genres[genre] = genres.get(genre, 0) + 1
+        table[a] = {"genres": genres, "source": "user"}
+        data = json.dumps(table, ensure_ascii=False, indent=1)
         try:
             os.makedirs(os.path.dirname(p), exist_ok=True)
             with open(p, "w", encoding="utf-8") as f:
-                json.dump(table, f, ensure_ascii=False, indent=1)
+                f.write(data)
         except Exception:
             pass
+        # miroir sur la clé : la mémoire voyage avec la collection
+        if self.usb_root:
+            try:
+                with open(os.path.join(self.usb_root,
+                                       "DJHELPER_MEMOIRE.json"),
+                          "w", encoding="utf-8") as f:
+                    f.write(data)
+            except Exception:
+                pass
 
     def review_apply(self, item_id, patch):
         """Valide un item : écrit le nml, apprend l'artiste, retire de la file."""
@@ -4607,22 +4617,45 @@ class Core:
         return {"ok": True}
 
     def _enr_artist_table(self):
-        """Seed embarqué (connaissance de session) + validations de
-        l'utilisateur ; en cas de conflit, l'utilisateur prime."""
+        """Seed embarqué (mémoire mutualisée, livrée avec l'app) + validations
+        locales ; si la table locale est absente (nouveau PC), le miroir
+        DJHELPER_MEMOIRE.json de la clé sert de restauration.
+        Retourne {artiste: {genre_majoritaire, ratio, count}}."""
         import json
-        table = {}
+        raw = {}
         try:
             seed = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 "web", "artist_genres_seed.json")
             with open(seed, encoding="utf-8") as f:
-                table.update(json.load(f))
+                raw.update(json.load(f))
         except Exception:
             pass
+        user = None
         try:
             with open(self._review_artist_table_path(), encoding="utf-8") as f:
-                table.update(json.load(f))
+                user = json.load(f)
         except Exception:
-            pass
+            if self.usb_root:
+                try:
+                    with open(os.path.join(self.usb_root,
+                                           "DJHELPER_MEMOIRE.json"),
+                              encoding="utf-8") as f:
+                        user = json.load(f)
+                except Exception:
+                    user = None
+        if user:
+            raw.update(user)
+        table = {}
+        for a, ent in raw.items():
+            genres = ent.get("genres") or {}
+            if not genres and ent.get("genre"):     # ancien format / seed
+                genres = {ent["genre"]: ent.get("count", 1)}
+            if not genres:
+                continue
+            total = sum(genres.values())
+            g, n = max(genres.items(), key=lambda kv: kv[1])
+            table[a] = {"genre": g, "ratio": n / total if total else 0,
+                        "count": total}
         return table
 
     def auto_enrich_step(self, batch=2):
@@ -4661,7 +4694,8 @@ class Core:
                 # 1) table artiste (validations de l'utilisateur)
                 key_a = _enr_norm(_enr_primary_artist(artist))
                 ent = table.get(key_a) if key_a else None
-                if ent and ent.get("genre") and ent["genre"] != cur:
+                if ent and ent.get("genre") and ent["genre"] != cur \
+                        and ent.get("ratio", 0) >= 0.7:
                     prop, src = ent["genre"], "vos validations"
                 # 2) Beatport (électro)
                 if not prop:
