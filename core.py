@@ -4129,11 +4129,18 @@ class Core:
                     cand = os.path.join(self.music_folder, *sub)
                 if os.path.isfile(cand):
                     return cand
-                # dernier recours : par nom de fichier
-                base = parts[-1]
-                for root, _dirs, files in os.walk(self.music_folder):
-                    if base in files:
-                        return os.path.join(root, base)
+                # dernier recours : index par nom de fichier, construit UNE fois
+                idx = getattr(self, "_rv_name_index", None)
+                if idx is None:
+                    idx = {}
+                    try:
+                        for root, _dirs, files in os.walk(self.music_folder):
+                            for fn in files:
+                                idx.setdefault(fn, os.path.join(root, fn))
+                    except Exception:
+                        pass
+                    self._rv_name_index = idx
+                return idx.get(parts[-1], "")
         except Exception:
             pass
         return ""
@@ -4274,6 +4281,16 @@ class Core:
         return self._rv_base
 
     def review_scan(self):
+        try:
+            return self._review_scan_impl()
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc().strip().splitlines()
+            return {"ok": False, "error": "analyse : %s: %s (%s)"
+                    % (type(e).__name__, str(e)[:120],
+                       tb[-2].strip()[:90] if len(tb) > 1 else "")}
+
+    def _review_scan_impl(self):
         """Scan natif : lit collection.nml et liste ce qui doit être corrigé.
         Fusionne les propositions du fichier DJHELPER_REVIEW.json s'il existe."""
         import xml.etree.ElementTree as ET
@@ -4387,12 +4404,25 @@ class Core:
         return {"ok": True, "complete": complete, "todo": len(items)}
 
     def review_state(self):
+        try:
+            return self._review_state_impl()
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc().strip().splitlines()
+            return {"ok": False, "error": "état de la file : %s: %s (%s)"
+                    % (type(e).__name__, str(e)[:120],
+                       tb[-2].strip()[:90] if len(tb) > 1 else "")}
+
+    def _review_state_impl(self):
         """État de la file après scan : items, stats, URLs audio."""
         if not getattr(self, "_rv_items", None):
             r = self.review_scan()
             if not r.get("ok"):
                 return {"ok": False, "error": r.get("error", "")}
-        base = self._review_audio_server()
+        try:
+            base = self._review_audio_server()
+        except Exception:
+            base = ""
         self._rv_audio_paths = {}
         out, stats = [], {}
         for i, it in enumerate(self._rv_items):

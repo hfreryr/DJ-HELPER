@@ -1447,15 +1447,16 @@ async function rvScan(){
   $('rv-summary').style.display = 'none';
   $('review-main').style.display = 'none';
   $('review-alldone').style.display = 'none';
-  let sc = null, st = null;
+  let sc = null, st = null, exc = '';
   try {
     sc = await API.review_scan();
     if (sc && sc.ok) st = await API.review_state();
-  } catch (e){}
+  } catch (e){ exc = String(e && (e.message || e)).slice(0, 160); }
   $('review-loading').style.display = 'none';
   if (!sc || !sc.ok || !st || !st.ok){
     const el = $('review-error');
-    el.textContent = (sc && sc.error) || (st && st.error) || 'Analyse impossible.';
+    el.textContent = (sc && sc.error) || (st && st.error) ||
+      (exc ? 'Analyse impossible — ' + exc : 'Analyse impossible.');
     el.style.display = 'block';
     rvLoaded = false;
     return;
