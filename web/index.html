@@ -280,6 +280,15 @@
         <div class="loading" id="review-loading" style="display:none;"><span class="spinner"></span>Analyse de la collection…</div>
         <div class="empty" id="review-error" style="display:none;"></div>
 
+        <div id="rv-online" style="display:none; margin-top:14px;">
+          <div class="toolbar" style="align-items:center;">
+            <span class="spinner"></span>
+            <span id="rv-online-txt">Recherche en ligne…</span>
+            <button class="btn ghost btn-sm" id="rv-online-stop">Arrêter</button>
+          </div>
+          <div class="rv-progress" style="margin-top:8px;"><div class="rv-fill" id="rv-online-fill"></div></div>
+        </div>
+
         <div class="tiles" id="rv-summary" style="display:none; margin-top:16px;"></div>
         <div class="empty" id="review-alldone" style="display:none;">🎉 Rien à corriger — ta bibliothèque est propre.</div>
 
@@ -292,6 +301,7 @@
             <div class="rv-prio-badge" id="rv-prio"></div>
             <div class="rv-head"><span id="rv-artist"></span><span class="rv-sep">—</span><span id="rv-title"></span></div>
             <div class="rv-meta"><span id="rv-bpm"></span> BPM · proposé : <b id="rv-genre"></b><span id="rv-yearlab"> · année <b id="rv-year"></b></span></div>
+            <div class="rv-src" id="rv-src" style="display:none;"></div>
             <audio id="rv-audio" controls preload="none" style="width:100%; margin-top:10px;"></audio>
             <div class="rv-missing" id="rv-missing" style="display:none;">⚠ Fichier introuvable — branche ta clé USB ou vérifie la racine dans la configuration.</div>
 

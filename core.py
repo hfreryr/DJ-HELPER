@@ -1290,6 +1290,293 @@ def restore_from_backup(backup_dir, usb_root, log=None):
     return {"n_restored": n_restored, "n_failed": n_failed}
 
 
+
+# ================== ENRICHISSEMENT EN LIGNE (année + genre) ==================
+# Cascades multi-sources portées des prototypes validés en session :
+# année  : iTunes -> Deezer -> Discogs -> Beatport -> Bandcamp   (écrite si trouvée)
+# genre  : table artiste utilisateur -> Beatport (électro) -> Discogs styles (proposé)
+
+_ENR_UA_JSON = {"User-Agent": "DJHelper/1.1 (+https://github.com/hfreryr/DJ-HELPER)"}
+_ENR_UA_HTML = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}
+
+
+def _enr_getj(url, timeout=14):
+    import json, urllib.request
+    try:
+        req = urllib.request.Request(url, headers=_ENR_UA_JSON)
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
+            return json.loads(r.read().decode("utf-8", "ignore"))
+    except Exception:
+        return None
+
+
+def _enr_geth(url, timeout=18):
+    import urllib.request
+    try:
+        req = urllib.request.Request(url, headers=_ENR_UA_HTML)
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
+            return r.read().decode("utf-8", "ignore")
+    except Exception:
+        return None
+
+
+def _enr_norm(s):
+    """Normalisation avec translittération des accents (Dwèt -> dwet)."""
+    import re, unicodedata
+    s = unicodedata.normalize("NFD", (s or "")).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def _enr_primary_artist(a):
+    for sep in ("/", " feat.", " feat ", ", ", " & ", " x ", " X ", " ft. ",
+                " ft ", " vs "):
+        if sep in a:
+            a = a.split(sep)[0]
+    return a.strip()
+
+
+def _enr_clean_title(t, artist=""):
+    import re
+    t = re.sub(r"\[.*?\]", "", t)
+    t = re.sub(r"^.{3,45}\s+-\s+\d{1,2}\s+", "", t)          # préfixe compilation
+    t = re.sub(r"\((feat\.?|with|ft\.?)[^)]*\)", "", t, flags=re.I)
+    if artist:
+        t = re.sub(r"^%s\s*[-–]\s*" % re.escape(_enr_primary_artist(artist)),
+                   "", t, flags=re.I)
+    t = re.sub(r"\s*-\s*(Original Mix|Extended Mix|Radio Edit|Master(ed)?.*|"
+               r"Single Version|Instrumental)\s*$", "", t, flags=re.I)
+    t = re.sub(r"\((Original|Extended)\s*Mix\)", "", t, flags=re.I)
+    return re.sub(r"\s+", " ", t).strip(" -_–")
+
+
+def _enr_year_itunes(a, t):
+    import urllib.parse
+    d = _enr_getj("https://itunes.apple.com/search?term=%s&entity=song&limit=8"
+                  % urllib.parse.quote("%s %s" % (a, t)))
+    if not d:
+        return None
+    na, nt = _enr_norm(a), _enr_norm(t)
+    ys = []
+    for r in d.get("results", []):
+        if na[:6] in _enr_norm(r.get("artistName", "")) \
+                and nt[:7] in _enr_norm(r.get("trackName", "")):
+            y = (r.get("releaseDate") or "")[:4]
+            if y.isdigit():
+                ys.append(int(y))
+    return min(ys) if ys else None
+
+
+def _enr_year_deezer(a, t):
+    import urllib.parse
+    d = _enr_getj("https://api.deezer.com/search?q=%s&limit=6"
+                  % urllib.parse.quote('artist:"%s" track:"%s"' % (a, t)))
+    if not d or not d.get("data"):
+        d = _enr_getj("https://api.deezer.com/search?q=%s&limit=6"
+                      % urllib.parse.quote("%s %s" % (a, t)))
+    if not d or not d.get("data"):
+        return None
+    na, nt = _enr_norm(a), _enr_norm(t)
+    for r in d["data"]:
+        if na[:6] in _enr_norm(r.get("artist", {}).get("name", "")) \
+                and nt[:7] in _enr_norm(r.get("title", "")):
+            alb = r.get("album", {}).get("id")
+            if alb:
+                ad = _enr_getj("https://api.deezer.com/album/%s" % alb)
+                y = ((ad or {}).get("release_date") or "")[:4]
+                if y.isdigit():
+                    return int(y)
+    return None
+
+
+_ENR_DC_LAST = [0.0]
+
+
+def _enr_discogs_search(a, t):
+    import time, urllib.parse
+    wait = 1.05 - (time.time() - _ENR_DC_LAST[0])
+    if wait > 0:
+        time.sleep(wait)
+    _ENR_DC_LAST[0] = time.time()
+    return _enr_getj(
+        "https://api.discogs.com/database/search?artist=%s&track=%s"
+        "&type=release&per_page=8"
+        % (urllib.parse.quote(a), urllib.parse.quote(t)))
+
+
+def _enr_year_discogs(a, t):
+    d = _enr_discogs_search(a, t)
+    if not d or not d.get("results"):
+        return None
+    ys = [int(str(r["year"])) for r in d["results"]
+          if str(r.get("year") or "").isdigit()]
+    return min(ys) if ys else None
+
+
+def _enr_beatport_tracks(a, t):
+    """Renvoie [(artistes, titre, genre, année)] de la recherche Beatport."""
+    import re, urllib.parse
+    h = _enr_geth("https://www.beatport.com/search/tracks?q=%s"
+                  % urllib.parse.quote("%s %s" % (a, t)))
+    if not h:
+        return []
+    H = h.replace('\\"', '"')
+    out = []
+    for seg in H.split('"artists":[')[1:12]:
+        s = seg[:4000]
+        arts = " ".join(re.findall(r'"artist_name"\s*:\s*"([^"]+)"', s))
+        mt = re.search(r'"track_name"\s*:\s*"([^"]*)"', s)
+        mg = re.findall(r'"genre_name"\s*:\s*"([^"]*)"', s)
+        my = re.search(r'"publish_date"\s*:\s*"(\d{4})-', s)
+        if mt:
+            out.append((arts, mt.group(1), mg[0] if mg else "",
+                        int(my.group(1)) if my else None))
+    return out
+
+
+def _enr_year_beatport(a, t):
+    na, nt = _enr_norm(a), _enr_norm(t)
+    ys = []
+    for arts, name, _g, y in _enr_beatport_tracks(a, t):
+        if y and na[:6] in _enr_norm(arts) and nt[:7] in _enr_norm(name):
+            ys.append(y)
+    return min(ys) if ys else None
+
+
+def _enr_year_bandcamp(a, t):
+    import re, urllib.parse
+    d = _enr_getj("https://bandcamp.com/api/fuzzysearch/1/app_autocomplete?q=%s"
+                  % urllib.parse.quote("%s %s" % (a, t)))
+    if not d or not d.get("results"):
+        return None
+    na, nt = _enr_norm(a), _enr_norm(t)
+    for r in d["results"][:6]:
+        if na[:6] and na[:6] not in _enr_norm(r.get("band_name", "")):
+            continue
+        nm = _enr_norm(r.get("name", ""))
+        if nt[:7] and nt[:7] not in nm and nm[:7] not in nt:
+            continue
+        u = r.get("url") or ""
+        i = u.rfind("https://")
+        if i > 0:
+            u = u[i:]
+        if not u:
+            continue
+        h = _enr_geth(u, 20)
+        if not h:
+            continue
+        m = (re.search(r'released\s+\d{1,2}\s+\w+\s+(\d{4})', h)
+             or re.search(r'"datePublished"\s*:\s*"[^"]*?(\d{4})', h))
+        if m:
+            y = int(m.group(1))
+            if 1990 <= y <= 2030:
+                return y
+    return None
+
+
+def enr_find_year(artist, title):
+    """Cascade année ; renvoie (année, source) ou (None, None)."""
+    import time
+    a = _enr_primary_artist(artist)
+    t = _enr_clean_title(title, artist)
+    if not a or not t:
+        return None, None
+    for name, fn, lo in (("iTunes", _enr_year_itunes, 1950),
+                         ("Deezer", _enr_year_deezer, 1950),
+                         ("Discogs", _enr_year_discogs, 1950),
+                         ("Beatport", _enr_year_beatport, 1990),
+                         ("Bandcamp", _enr_year_bandcamp, 1990)):
+        try:
+            y = fn(a, t)
+        except Exception:
+            y = None
+        if y and lo <= y <= 2030:
+            return y, name
+        time.sleep(0.25)
+    return None, None
+
+
+# ---- genre : mapping Beatport / Discogs vers le vocabulaire de l'app ----
+_ENR_BP_MAP = [
+    ("hard techno", "Techno hard"), ("hardstyle", "Techno hard"),
+    ("hard dance", "Techno hard"), ("hardcore", "Techno hard"),
+    ("raw / deep / hypnotic", "Techno berlin"),
+    ("peak time / driving", "Techno"),
+    ("melodic house & techno", "Techno"),
+    ("tech house", "House tech"), ("bass house", "House tech"),
+    ("minimal / deep tech", "House tech"),
+    ("deep house", "House deep"), ("organic house", "House deep"),
+    ("progressive house", "House"), ("afro house", "House"),
+    ("funky house", "House disco"), ("jackin house", "House disco"),
+    ("nu disco", "House disco"), ("disco", "House disco"),
+    ("indie dance", "House disco"),
+    ("mainstage", "EDM/Big room"), ("big room", "EDM/Big room"),
+    ("trance", "EDM/Big room"), ("psy-trance", "EDM/Big room"),
+    ("electro (classic", "Techno"), ("techno", "Techno"),
+    ("house", "House"), ("uk garage", "House"), ("amapiano", "House"),
+    ("hip-hop", "Rap/Hip-hop"), ("r&b", "Rap/Hip-hop"),
+    ("latin", "Latino/Reggaeton"), ("dancehall", "Reggae/Dancehall"),
+    ("reggae", "Reggae/Dancehall"), ("pop", "Pop"),
+    ("dance / electro pop", "Pop"),
+]
+_ENR_DC_MAP = [
+    ("acid techno", "Techno acid"), ("hard techno", "Techno hard"),
+    ("hardstyle", "Techno hard"), ("hardcore", "Techno hard"),
+    ("minimal techno", "Techno berlin"), ("minimal", "Techno berlin"),
+    ("acid house", "House"), ("deep house", "House deep"),
+    ("tech house", "House tech"), ("filter house", "French touch"),
+    ("french house", "French touch"), ("disco house", "House disco"),
+    ("nu-disco", "House disco"), ("euro house", "Dance-Eurodance"),
+    ("eurodance", "Dance-Eurodance"), ("italo-dance", "Dance-Eurodance"),
+    ("progressive house", "EDM/Big room"), ("electro house", "EDM/Big room"),
+    ("big room", "EDM/Big room"), ("trance", "EDM/Big room"),
+    ("techno", "Techno"), ("house", "House"),
+    ("hip hop", "Rap/Hip-hop"), ("hip-hop", "Rap/Hip-hop"),
+    ("gangsta", "Rap/Hip-hop"), ("rnb/swing", "Rap/Hip-hop"),
+    ("reggaeton", "Latino/Reggaeton"), ("cumbia", "Latino/Reggaeton"),
+    ("dancehall", "Reggae/Dancehall"), ("reggae", "Reggae/Dancehall"),
+    ("disco", "Disco/Funk/Soul"), ("funk", "Disco/Funk/Soul"),
+    ("soul", "Disco/Funk/Soul"), ("boogie", "Disco/Funk/Soul"),
+    ("chanson", "Chanson FR"), ("synth-pop", "Pop"),
+    ("europop", "Pop"), ("pop rock", "Pop"), ("rock", "Rock"),
+]
+
+
+def _enr_map_genre(raw, table):
+    raw_l = (raw or "").lower()
+    if not raw_l:
+        return None
+    for needle, target in table:
+        if needle in raw_l:
+            return target
+    return None
+
+
+def enr_genre_beatport(artist, title):
+    """Genre Beatport mappé ; renvoie (genre_app, genre_brut) ou (None, None)."""
+    a = _enr_primary_artist(artist)
+    t = _enr_clean_title(title, artist)
+    na, nt = _enr_norm(a), _enr_norm(t)
+    for arts, name, g, _y in _enr_beatport_tracks(a, t):
+        if g and na[:6] in _enr_norm(arts) and nt[:7] in _enr_norm(name):
+            return _enr_map_genre(g, _ENR_BP_MAP), g
+    return None, None
+
+
+def enr_genre_discogs(artist, title):
+    """Style Discogs mappé ; renvoie (genre_app, style_brut) ou (None, None)."""
+    a = _enr_primary_artist(artist)
+    t = _enr_clean_title(title, artist)
+    d = _enr_discogs_search(a, t)
+    if not d or not d.get("results"):
+        return None, None
+    styles = d["results"][0].get("style") or []
+    for st in styles:
+        m = _enr_map_genre(st, _ENR_DC_MAP)
+        if m:
+            return m, st
+    return None, (styles[0] if styles else None)
+
 class Core:
     def __init__(self):
         self.music_folder = ""
@@ -4078,6 +4365,8 @@ class Core:
                         "bpm": it["bpm"], "genre": it["genre"],
                         "year": it["year"], "priority": it["priority"],
                         "choices": it["choices"], "skipped": it["skipped"],
+                        "genre_src": it.get("genre_src", ""),
+                        "year_src": it.get("year_src", ""),
                         "exists": bool(path),
                         "audio": (base + "/a/%d" % i) if path else "",
                         "path": path})
@@ -4244,3 +4533,97 @@ class Core:
         skips.add(it["key"])
         self._review_save_skips(skips)
         return {"ok": True}
+
+    # ================== ENRICHISSEMENT AUTO (après le scan) ==================
+    # Année trouvée -> écrite directement dans collection.nml (item résolu).
+    # Genre trouvé  -> proposé dans la file (badge source), validation en 1 clic.
+
+    def auto_enrich_begin(self):
+        items = getattr(self, "_rv_items", None)
+        if not items:
+            return {"ok": False, "error": "lance d'abord l'analyse"}
+        queue = [i for i, it in enumerate(items)
+                 if not it.get("done") and not it.get("skipped")]
+        self._ae = {"queue": queue, "pos": 0, "years": 0, "props": 0,
+                    "stop": False}
+        return {"ok": True, "total": len(queue)}
+
+    def auto_enrich_stop(self):
+        if getattr(self, "_ae", None):
+            self._ae["stop"] = True
+        return {"ok": True}
+
+    def _enr_artist_table(self):
+        """Seed embarqué (connaissance de session) + validations de
+        l'utilisateur ; en cas de conflit, l'utilisateur prime."""
+        import json
+        table = {}
+        try:
+            seed = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "web", "artist_genres_seed.json")
+            with open(seed, encoding="utf-8") as f:
+                table.update(json.load(f))
+        except Exception:
+            pass
+        try:
+            with open(self._review_artist_table_path(), encoding="utf-8") as f:
+                table.update(json.load(f))
+        except Exception:
+            pass
+        return table
+
+    def auto_enrich_step(self, batch=2):
+        """Traite `batch` items ; renvoie la progression."""
+        ae = getattr(self, "_ae", None)
+        if not ae:
+            return {"ok": False, "error": "enrichissement non initialisé"}
+        items = self._rv_items
+        table = self._enr_artist_table()
+        n = 0
+        while n < int(batch) and ae["pos"] < len(ae["queue"]) and not ae["stop"]:
+            it = items[ae["queue"][ae["pos"]]]
+            ae["pos"] += 1
+            n += 1
+            if it.get("done") or it.get("skipped"):
+                continue
+            artist, title = it.get("artist", ""), it.get("title", "")
+            # --- année manquante : cascade + écriture directe ---
+            if not it.get("year"):
+                y, src = enr_find_year(artist, title)
+                if y:
+                    ok, _err = self._review_write_nml(it["key"], {"year": y})
+                    if ok:
+                        it["year"] = y
+                        it["year_src"] = src
+                        ae["years"] += 1
+                        if it["priority"] in ("ANNÉE MANQUANTE",
+                                              "ANNÉE INTROUVABLE"):
+                            it["done"] = True
+                            continue
+            # --- genre à trouver / sous-genre à préciser : proposition ---
+            if it["priority"] in ("GENRE MANQUANT", "SOUS-GENRE TECHNO",
+                                  "GENRE", "À VÉRIFIER"):
+                cur = it.get("genre") or ""
+                prop, src = None, ""
+                # 1) table artiste (validations de l'utilisateur)
+                key_a = _enr_norm(_enr_primary_artist(artist))
+                ent = table.get(key_a) if key_a else None
+                if ent and ent.get("genre") and ent["genre"] != cur:
+                    prop, src = ent["genre"], "vos validations"
+                # 2) Beatport (électro)
+                if not prop:
+                    g, raw = enr_genre_beatport(artist, title)
+                    if g and g != cur:
+                        prop, src = g, "Beatport : %s" % (raw or "")
+                # 3) Discogs styles
+                if not prop:
+                    g, raw = enr_genre_discogs(artist, title)
+                    if g and g != cur:
+                        prop, src = g, "Discogs : %s" % (raw or "")
+                if prop:
+                    it["genre"] = prop
+                    it["genre_src"] = src
+                    ae["props"] += 1
+        return {"ok": True, "pos": ae["pos"], "total": len(ae["queue"]),
+                "years": ae["years"], "props": ae["props"],
+                "finished": ae["pos"] >= len(ae["queue"]) or ae["stop"]}

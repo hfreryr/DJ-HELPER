@@ -1462,12 +1462,22 @@ async function rvScan(){
   }
   rvGenres = st.genres || [];
   rvItems = st.items || [];
+  $('rv-chip').textContent = sc.complete + ' complets · ' + sc.todo + ' à corriger';
+  if (!rvItems.length){
+    rvLoaded = true;
+    $('review-alldone').style.display = 'block';
+    return;
+  }
+  // recherche en ligne automatique (années écrites, genres proposés)
+  await rvOnline();
+  // recharger l'état final puis afficher la file
+  try { st = await API.review_state(); } catch (e){}
+  rvItems = (st && st.items) || rvItems;
   rvDone = 0;
   rvTotal = rvItems.length;
   rvFilter = '';
   rvIdx = 0;
   rvLoaded = true;
-  $('rv-chip').textContent = sc.complete + ' complets · ' + sc.todo + ' à corriger';
   if (!rvItems.length){
     $('review-alldone').style.display = 'block';
     return;
@@ -1478,6 +1488,27 @@ async function rvScan(){
   rvRenderItem();
   $('rv-summary').style.display = '';
   $('review-main').style.display = 'block';
+}
+
+let rvOnlineStop = false;
+async function rvOnline(){
+  let b = null;
+  try { b = await API.auto_enrich_begin(); } catch (e){ b = null; }
+  if (!b || !b.ok || !b.total) return;
+  rvOnlineStop = false;
+  $('rv-online').style.display = '';
+  const mins = Math.max(1, Math.round(b.total * 1.6 / 60));
+  $('rv-online-txt').textContent = 'Recherche en ligne 0/' + b.total + ' (~' + mins + ' min)';
+  while (!rvOnlineStop){
+    let r = null;
+    try { r = await API.auto_enrich_step(2); } catch (e){ break; }
+    if (!r || !r.ok) break;
+    $('rv-online-txt').textContent = 'Recherche en ligne ' + r.pos + '/' + r.total +
+      ' · ' + r.years + ' années écrites · ' + r.props + ' genres proposés';
+    $('rv-online-fill').style.width = r.total ? Math.round(100 * r.pos / r.total) + '%' : '0%';
+    if (r.finished) break;
+  }
+  $('rv-online').style.display = 'none';
 }
 
 function rvRenderSummary(){
@@ -1523,6 +1554,13 @@ function rvRenderItem(){
   $('rv-bpm').textContent = it.bpm || '—';
   $('rv-genre').textContent = it.genre || '—';
   $('rv-year').textContent = it.year || '—';
+  const srcEl = $('rv-src');
+  if (it.genre_src){
+    srcEl.textContent = '✓ Proposé par ' + it.genre_src;
+    srcEl.style.display = '';
+  } else {
+    srcEl.style.display = 'none';
+  }
   const au = $('rv-audio');
   au.pause();
   if (it.exists && it.audio){
@@ -1614,6 +1652,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 $('rv-scan').addEventListener('click', rvScan);
+$('rv-online-stop').addEventListener('click', async () => {
+  rvOnlineStop = true;
+  try { await API.auto_enrich_stop(); } catch (e){}
+});
 $('rv-ok').addEventListener('click', () => rvApply({}));
 $('rv-skip').addEventListener('click', rvSkip);
 $('rv-reveal').addEventListener('click', async () => {

@@ -428,3 +428,4 @@ body{
 .rv-tile:hover{background:var(--bg-hover);}
 .rv-tile.active{border-color:var(--accent);}
 .rv-tile .num{cursor:pointer;}
+.rv-src{margin-top:6px; font-size:12px; color:var(--success);}
