@@ -429,3 +429,9 @@ body{
 .rv-tile.active{border-color:var(--accent);}
 .rv-tile .num{cursor:pointer;}
 .rv-src{margin-top:6px; font-size:12px; color:var(--success);}
+.rv-marks{display:inline-flex; gap:6px; margin-left:auto;}
+.rv-mark{padding:7px 12px; border-radius:8px; font-size:12.5px; cursor:pointer;
+  background:var(--bg-card); border:0.5px solid var(--border); color:var(--text-2);}
+.rv-mark.on[data-mark="Club"]{background:#7c3aed; border-color:#7c3aed; color:#fff;}
+.rv-mark.on[data-mark="Fond"]{background:#b45309; border-color:#b45309; color:#fff;}
+.rv-mark.on[data-mark="Singalong"]{background:#15803d; border-color:#15803d; color:#fff;}

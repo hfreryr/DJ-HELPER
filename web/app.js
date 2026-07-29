@@ -1491,6 +1491,7 @@ async function rvScan(){
 }
 
 let rvOnlineStop = false;
+let rvMark = '';       // marqueur sélectionné pour l'item courant
 async function rvOnline(){
   let b = null;
   try { b = await API.auto_enrich_begin(); } catch (e){ b = null; }
@@ -1585,6 +1586,10 @@ function rvRenderItem(){
   sel.value = '';
   $('rv-year-input').value = '';
   $('rv-year-input').placeholder = it.year ? String(it.year) : 'Année';
+  rvMark = it.mark || '';
+  document.querySelectorAll('.rv-mark').forEach(b => {
+    b.classList.toggle('on', b.dataset.mark === rvMark);
+  });
 }
 
 async function rvApply(patch){
@@ -1596,7 +1601,9 @@ async function rvApply(patch){
   if (!patch.genre && sel) patch.genre = sel;
   if (!patch.genre && it.genre) patch.genre = it.genre;   // « valider tel quel »
   if (yr && yr > 1900) patch.year = yr;
-  if (!patch.genre && !patch.year){
+  const it2 = rvCurrent();
+  if (rvMark !== ((it2 && it2.mark) || '')) patch.mark = rvMark || null;
+  if (!patch.genre && !patch.year && !('mark' in patch)){
     alert('Choisis un genre ou saisis une année avant de valider.');
     return;
   }
@@ -1658,6 +1665,13 @@ $('rv-online-stop').addEventListener('click', async () => {
 });
 $('rv-ok').addEventListener('click', () => rvApply({}));
 $('rv-skip').addEventListener('click', rvSkip);
+document.querySelectorAll('.rv-mark').forEach(b => {
+  b.addEventListener('click', () => {
+    rvMark = (rvMark === b.dataset.mark) ? '' : b.dataset.mark;
+    document.querySelectorAll('.rv-mark').forEach(x =>
+      x.classList.toggle('on', x.dataset.mark === rvMark));
+  });
+});
 $('rv-reveal').addEventListener('click', async () => {
   const it = rvCurrent();
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }

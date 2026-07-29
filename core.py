@@ -1496,6 +1496,27 @@ def enr_find_year(artist, title):
     return None, None
 
 
+def enr_energy(bpm, genre):
+    """Énergie 1-5 depuis BPM+genre. Échelle relative pour la techno,
+    absolue ailleurs, avec correction des grilles half/double-time."""
+    try:
+        b = float(bpm)
+    except Exception:
+        return None
+    if b <= 0:
+        return None
+    g = genre or ""
+    if g in ("Pop", "Rock", "Chanson FR", "Disco/Funk/Soul") and b > 150:
+        b /= 2                      # grille double-time détectée
+    if g in ("Rap/Hip-hop", "Latino/Reggaeton") and b < 95 and b >= 40:
+        b *= 2                      # grille half-time détectée
+    if g.startswith("Techno"):
+        return 1 if b < 126 else 2 if b < 130 else 3 if b < 135 else \
+               4 if b < 142 else 5
+    return 1 if b < 96 else 2 if b < 114 else 3 if b < 122 else \
+           4 if b < 128 else 5
+
+
 # ---- genre : mapping Beatport / Discogs vers le vocabulaire de l'app ----
 _ENR_BP_MAP = [
     ("hard techno", "Techno hard"), ("hardstyle", "Techno hard"),
@@ -4277,6 +4298,7 @@ class Core:
                 props[it.get("key", "")] = (i, it)
 
         skips = self._review_load_skips()
+        self._rv_energy_fix = []
         items, complete = [], 0
         for e in coll.findall("ENTRY"):
             loc = e.find("LOCATION")
@@ -4287,6 +4309,18 @@ class Core:
             info = e.find("INFO")
             genre = (info.get("GENRE") or "").strip() if info is not None else ""
             rdate = (info.get("RELEASE_DATE") or "").strip() if info is not None else ""
+            rank = 0
+            mark = ""
+            if info is not None:
+                try:
+                    rank = int(info.get("RANKING") or 0)
+                except Exception:
+                    rank = 0
+                cm = info.get("COMMENT") or ""
+                for m in ("Club", "Fond", "Singalong"):
+                    if m in cm:
+                        mark = m
+                        break
             year = None
             if rdate[:4].isdigit():
                 year = int(rdate[:4])
@@ -4326,11 +4360,18 @@ class Core:
             else:
                 file_index = None
 
+            if prio is None and genre and rank <= 0:
+                # tout est là sauf l'étoile : calculable sans validation
+                nrg = enr_energy(bpm, genre)
+                if nrg:
+                    self._rv_energy_fix = getattr(self, "_rv_energy_fix", [])
+                    self._rv_energy_fix.append((key, nrg))
             if prio is None:
                 complete += 1
                 continue
             items.append({"key": key, "artist": artist, "title": title,
                           "bpm": bpm, "genre": genre, "year": year,
+                          "mark": mark,
                           "priority": prio, "choices": choices,
                           "file_index": file_index,
                           "skipped": key in skips})
@@ -4365,6 +4406,7 @@ class Core:
                         "bpm": it["bpm"], "genre": it["genre"],
                         "year": it["year"], "priority": it["priority"],
                         "choices": it["choices"], "skipped": it["skipped"],
+                        "mark": it.get("mark", ""),
                         "genre_src": it.get("genre_src", ""),
                         "year_src": it.get("year_src", ""),
                         "exists": bool(path),
@@ -4502,6 +4544,10 @@ class Core:
         except Exception:
             return {"ok": False, "error": "item inconnu — relance l'analyse"}
         patch = patch or {}
+        if patch.get("genre") and not patch.get("energy"):
+            nrg = enr_energy(it.get("bpm") or 0, patch["genre"])
+            if nrg:
+                patch["energy"] = nrg
         ok, err = self._review_write_nml(it["key"], patch)
         if not ok:
             return {"ok": False, "error": err}
@@ -4540,13 +4586,20 @@ class Core:
 
     def auto_enrich_begin(self):
         items = getattr(self, "_rv_items", None)
-        if not items:
+        if items is None:
             return {"ok": False, "error": "lance d'abord l'analyse"}
+        # étoiles manquantes calculables localement : écrites d'un bloc
+        energies = 0
+        for key, nrg in getattr(self, "_rv_energy_fix", []) or []:
+            ok, _e = self._review_write_nml(key, {"energy": nrg})
+            if ok:
+                energies += 1
+        self._rv_energy_fix = []
         queue = [i for i, it in enumerate(items)
                  if not it.get("done") and not it.get("skipped")]
         self._ae = {"queue": queue, "pos": 0, "years": 0, "props": 0,
-                    "stop": False}
-        return {"ok": True, "total": len(queue)}
+                    "stop": False, "energies": energies}
+        return {"ok": True, "total": len(queue), "energies": energies}
 
     def auto_enrich_stop(self):
         if getattr(self, "_ae", None):
