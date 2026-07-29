@@ -325,8 +325,9 @@
         </div>
       </div>
 
+      <div class="card adv-card" style="margin-top:24px;">
       <details class="adv-tools" id="tags-advanced">
-        <summary>Outils avancés (déduction, AcoustID, renommage)</summary>
+        <summary><span class="card-title">Outils avancés</span><span class="adv-sub">Déduction depuis le nom · identification par empreinte audio · renommage des fichiers</span></summary>
 
       <div class="card" style="margin-top:24px;">
         <div class="card-title">Déduire les tags depuis le nom<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Compare le nom du fichier (souvent « Artiste - Titre ») aux tags internes et corrige ces derniers s'ils sont vides ou erronés. Aperçu avant d'appliquer.</span></span></div>
@@ -354,7 +355,7 @@
       </div>
 
       <div class="card" style="margin-top:28px;">
-        <div class="card-title">Enrichir les tags via AcoustID<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Identifie chaque fichier par son empreinte acoustique et propose les tags officiels (artiste, titre, album) + la pochette manquante via MusicBrainz. Réutilise la clé AcoustID de l'onglet Intégrité. Les titres marqués remix/edit ne sont jamais remplacés. Analyse en ligne (~1 fichier/s, mise en cache).</span></span></div>
+        <div class="card-title">Identifier les fichiers inconnus (empreinte audio)<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Pour les fichiers aux tags vides ou faux : l'empreinte acoustique (AcoustID) identifie le morceau sans se fier aux tags, et propose artiste, titre, album et pochette via MusicBrainz. C'est le complément de « Nettoyer ma bibliothèque » : le nettoyage enrichit genre/année de morceaux identifiés, l'empreinte identifie les morceaux inconnus. Réutilise la clé AcoustID de l'onglet Intégrité. Les titres marqués remix/edit ne sont jamais remplacés (~1 fichier/s, mise en cache).</span></span></div>
         <div class="card-sub">Retrouve les tags officiels associés à tes fichiers audio</div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-enrich">Identifier</button>
@@ -404,6 +405,7 @@
         <div class="loading" id="rename-loading" style="display:none;"><span class="spinner"></span>Analyse…</div>
       </div>
       </details>
+      </div>
     </section>
 
     <!-- ----- Doublons ----- -->

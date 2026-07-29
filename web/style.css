@@ -435,3 +435,13 @@ body{
 .rv-mark.on[data-mark="Club"]{background:#7c3aed; border-color:#7c3aed; color:#fff;}
 .rv-mark.on[data-mark="Fond"]{background:#b45309; border-color:#b45309; color:#fff;}
 .rv-mark.on[data-mark="Singalong"]{background:#15803d; border-color:#15803d; color:#fff;}
+.adv-card{padding-bottom:8px;}
+.adv-card .adv-tools{margin-top:0;}
+.adv-card .adv-tools > summary{background:none; border:none; padding:0; display:flex;
+  align-items:baseline; gap:14px; flex-wrap:wrap;}
+.adv-card .adv-tools > summary .card-title{font-size:inherit;}
+.adv-card .adv-tools > summary::before{color:var(--text-2); font-size:15px;}
+.adv-sub{color:var(--text-3); font-size:12.5px;}
+.adv-card .adv-tools[open] > summary{margin-bottom:4px;}
+.adv-card .adv-tools .card{border:none; background:none; padding-left:0; padding-right:0;
+  border-top:0.5px solid var(--border); border-radius:0; margin-top:18px !important; padding-top:18px;}
