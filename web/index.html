@@ -302,7 +302,10 @@
             <div class="rv-head"><span id="rv-artist"></span><span class="rv-sep">—</span><span id="rv-title"></span></div>
             <div class="rv-meta"><span id="rv-bpm"></span> BPM · proposé : <b id="rv-genre"></b><span id="rv-yearlab"> · année <b id="rv-year"></b></span></div>
             <div class="rv-src" id="rv-src" style="display:none;"></div>
-            <audio id="rv-audio" controls preload="none" style="width:100%; margin-top:10px;"></audio>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+              <audio id="rv-audio" controls preload="none" style="flex:1;"></audio>
+              <button class="btn ghost btn-sm" id="rv-audio-reset" title="Le son ne sort pas sur le bon périphérique (écouteurs branchés après coup) ? Recharge le flux audio.">🔄</button>
+            </div>
             <div class="rv-missing" id="rv-missing" style="display:none;">⚠ Fichier introuvable — branche ta clé USB ou vérifie la racine dans la configuration.</div>
 
             <div class="rv-choices" id="rv-choices"></div>

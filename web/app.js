@@ -1666,6 +1666,27 @@ $('rv-online-stop').addEventListener('click', async () => {
 });
 $('rv-ok').addEventListener('click', () => rvApply({}));
 $('rv-skip').addEventListener('click', rvSkip);
+// Écouteurs branchés/débranchés : WebView2 fige la sortie audio du lecteur
+// sur le périphérique actif au chargement. On recharge le flux au changement
+// de périphérique, en préservant la position et l'état de lecture.
+function rvReloadAudio(){
+  const au = $('rv-audio');
+  if (!au || !au.src) return;
+  const pos = au.currentTime || 0;
+  const playing = !au.paused && !au.ended;
+  const once = () => {
+    au.removeEventListener('loadedmetadata', once);
+    try { au.currentTime = pos; } catch (e){}
+    if (playing) au.play().catch(() => {});
+  };
+  au.addEventListener('loadedmetadata', once);
+  au.load();
+}
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener){
+  navigator.mediaDevices.addEventListener('devicechange', rvReloadAudio);
+}
+
+$('rv-audio-reset').addEventListener('click', rvReloadAudio);
 document.querySelectorAll('.rv-mark').forEach(b => {
   b.addEventListener('click', () => {
     rvMark = (rvMark === b.dataset.mark) ? '' : b.dataset.mark;
