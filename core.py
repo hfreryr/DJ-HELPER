@@ -4176,6 +4176,28 @@ class Core:
         except Exception:
             pass
 
+    def _review_proposals_path(self):
+        return os.path.join(os.path.expanduser("~"), ".djhelper",
+                            "proposals.json")
+
+    def _review_load_proposals(self):
+        import json
+        try:
+            with open(self._review_proposals_path(), encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _review_save_proposals(self, props):
+        import json
+        try:
+            p = self._review_proposals_path()
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(props, f, ensure_ascii=False)
+        except Exception:
+            pass
+
     def _review_skips_path(self):
         return os.path.join(os.path.expanduser("~"), ".djhelper",
                             "review_skips.json")
@@ -4393,6 +4415,24 @@ class Core:
                           "file_index": file_index,
                           "skipped": key in skips})
 
+        # restaurer les propositions persistées (survivent à la fermeture)
+        cache = self._review_load_proposals()
+        if cache:
+            pending = {it["key"] for it in items}
+            changed = False
+            for it in items:
+                c = cache.get(it["key"])
+                if c and c.get("genre") and not it.get("genre_src"):
+                    if it["genre"] != c["genre"]:
+                        it["genre"] = c["genre"]
+                    it["genre_src"] = c.get("src", "")
+            for k in list(cache.keys()):
+                if k not in pending:      # validé ou disparu : purger
+                    del cache[k]
+                    changed = True
+            if changed:
+                self._review_save_proposals(cache)
+
         order = {"SOUS-GENRE TECHNO": 0, "ACID À CONFIRMER": 1,
                  "GENRE MANQUANT": 2, "ANNÉE MANQUANTE": 3,
                  "ANNÉE INTROUVABLE": 3, "GENRE": 4, "MINEUR": 5,
@@ -4602,6 +4642,10 @@ class Core:
             except Exception:
                 pass
         it["done"] = True
+        cache = self._review_load_proposals()
+        if it["key"] in cache:
+            del cache[it["key"]]
+            self._review_save_proposals(cache)
         skips = self._review_load_skips()
         if it["key"] in skips:
             skips.discard(it["key"])
@@ -4741,6 +4785,9 @@ class Core:
                     it["genre"] = prop
                     it["genre_src"] = src
                     ae["props"] += 1
+                    cache = self._review_load_proposals()
+                    cache[it["key"]] = {"genre": prop, "src": src}
+                    self._review_save_proposals(cache)
         return {"ok": True, "pos": ae["pos"], "total": len(ae["queue"]),
                 "years": ae["years"], "props": ae["props"],
                 "finished": ae["pos"] >= len(ae["queue"]) or ae["stop"]}
