@@ -213,6 +213,28 @@ class Api:
     def set_lang(self, lang):
         return self.core.set_lang(lang)
 
+    # --- Nettoyer ma bibliothèque (file de validation + enrichissement) ---
+    def review_scan(self):
+        return self.core.review_scan()
+
+    def review_state(self):
+        return self.core.review_state()
+
+    def review_apply(self, item_id, patch=None):
+        return self.core.review_apply(item_id, patch)
+
+    def review_skip(self, item_id):
+        return self.core.review_skip(item_id)
+
+    def auto_enrich_begin(self):
+        return self.core.auto_enrich_begin()
+
+    def auto_enrich_step(self, batch=2):
+        return self.core.auto_enrich_step(batch)
+
+    def auto_enrich_stop(self):
+        return self.core.auto_enrich_stop()
+
     def vault_check(self):
         return self.core.vault_check()
 
