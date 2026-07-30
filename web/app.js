@@ -1572,6 +1572,19 @@ function rvRenderItem(){
     au.removeAttribute('src'); au.style.display = 'none';
     $('rv-missing').style.display = 'block';
   }
+  const idfix = $('rv-idfix');
+  if (it.priority === 'ARTISTE/TITRE MANQUANT' || it.priority === 'TITRE À NETTOYER'){
+    idfix.style.display = '';
+    $('rv-artist-input').value = it.artist_prop || it.artist || '';
+    $('rv-title-input').value = it.title_prop || it.title || '';
+    $('rv-idfix-lab').textContent = it.priority === 'TITRE À NETTOYER'
+      ? '✓ Titre nettoyé proposé — corrige si besoin puis valide'
+      : '✓ Déduit du nom de fichier — corrige si besoin puis valide';
+  } else {
+    idfix.style.display = 'none';
+    $('rv-artist-input').value = '';
+    $('rv-title-input').value = '';
+  }
   const box = $('rv-choices');
   box.innerHTML = '';
   (it.choices || []).forEach((g, i) => {
@@ -1602,9 +1615,15 @@ async function rvApply(patch){
   if (!patch.genre && sel) patch.genre = sel;
   if (!patch.genre && it.genre) patch.genre = it.genre;   // « valider tel quel »
   if (yr && yr > 1900) patch.year = yr;
+  if ($('rv-idfix').style.display !== 'none'){
+    const na = $('rv-artist-input').value.trim();
+    const nt = $('rv-title-input').value.trim();
+    if (na && na !== it.artist) patch.artist = na;
+    if (nt && nt !== it.title) patch.title = nt;
+  }
   const it2 = rvCurrent();
   if (rvMark !== ((it2 && it2.mark) || '')) patch.mark = rvMark || null;
-  if (!patch.genre && !patch.year && !('mark' in patch)){
+  if (!patch.genre && !patch.year && !patch.artist && !patch.title && !('mark' in patch)){
     alert('Choisis un genre ou saisis une année avant de valider.');
     return;
   }

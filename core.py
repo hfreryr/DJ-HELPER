@@ -1517,6 +1517,51 @@ def enr_energy(bpm, genre):
            4 if b < 128 else 5
 
 
+_RV_KEEP_BRACKET = ("mix", "edit", "remix", "version", "extended", "radio",
+                    "club", "original", "instrumental", "acapella", "vip",
+                    "bootleg", "rework", "flip", "dub", "live", "feat",
+                    "ft.", "with ")
+
+
+def rv_clean_title_proposal(title, artist=""):
+    """Nettoyage conservateur d'un titre : préfixes de compilation,
+    crochets parasites, préfixe artiste redondant, adresses de sites.
+    Renvoie le titre propre si différent, sinon None."""
+    import re
+    t = title or ""
+    def drop_bracket(m):
+        inner = m.group(1).lower()
+        return m.group(0) if any(k in inner for k in _RV_KEEP_BRACKET) else " "
+    t = re.sub(r"\[([^\]]*)\]", drop_bracket, t)
+    t = re.sub(r"\(?(?:www\.)[^\s)]+\)?", " ", t, flags=re.I)
+    t = re.sub(r"^.{3,45}?\s+-\s+\d{1,2}\s+(?=\S)", "", t)
+    if artist:
+        full = artist.strip()
+        prim = artist.split("/")[0].split(",")[0].strip()
+        for a in (full, prim):
+            if a and len(a) >= 2:
+                t2 = re.sub(r"^%s\s*[-–]\s*" % re.escape(a), "", t, flags=re.I)
+                if t2 != t:
+                    t = t2
+                    break
+    t = re.sub(r"\s{2,}", " ", t).strip(" -_–")
+    if len(t) >= 3 and t != (title or "").strip():
+        return t
+    return None
+
+
+def rv_parse_filename(fname):
+    """'Artiste - Titre.mp3' -> (artiste, titre) ; sinon ('', titre)."""
+    import os as _os, re
+    base = _os.path.splitext(fname or "")[0]
+    base = re.sub(r"[_]+", " ", base).strip()
+    if " - " in base:
+        a, t = base.split(" - ", 1)
+        if 2 <= len(a.strip()) <= 60 and len(t.strip()) >= 2:
+            return a.strip(), t.strip()
+    return "", base
+
+
 # ---- genre : mapping Beatport / Discogs vers le vocabulaire de l'app ----
 _ENR_BP_MAP = [
     ("hard techno", "Techno hard"), ("hardstyle", "Techno hard"),
@@ -4374,13 +4419,27 @@ class Core:
 
             prio = None
             choices = []
-            if not genre:
+            artist_prop = title_prop = ""
+            a_low = artist.strip().lower()
+            if not artist.strip() or not title.strip() \
+                    or a_low in ("unknown artist", "unknown", "artiste inconnu",
+                                 "various artists", "va"):
+                prio = "ARTISTE/TITRE MANQUANT"
+                fa, ft = rv_parse_filename(loc.get("FILE") or "")
+                artist_prop = fa or artist
+                title_prop = ft or title
+            elif not genre:
                 prio = "GENRE MANQUANT"
             elif genre == "Techno":
                 prio = "SOUS-GENRE TECHNO"
                 choices = list(self._REVIEW_TECHNO_CHOICES)
             elif not year:
                 prio = "ANNÉE MANQUANTE"
+            else:
+                clean = rv_clean_title_proposal(title, artist)
+                if clean:
+                    prio = "TITRE À NETTOYER"
+                    title_prop = clean
 
             fi = props.pop(key, None)
             if fi is not None:
@@ -4411,6 +4470,7 @@ class Core:
             items.append({"key": key, "artist": artist, "title": title,
                           "bpm": bpm, "genre": genre, "year": year,
                           "mark": mark,
+                          "artist_prop": artist_prop, "title_prop": title_prop,
                           "priority": prio, "choices": choices,
                           "file_index": file_index,
                           "skipped": key in skips})
@@ -4433,10 +4493,11 @@ class Core:
             if changed:
                 self._review_save_proposals(cache)
 
-        order = {"SOUS-GENRE TECHNO": 0, "ACID À CONFIRMER": 1,
-                 "GENRE MANQUANT": 2, "ANNÉE MANQUANTE": 3,
-                 "ANNÉE INTROUVABLE": 3, "GENRE": 4, "MINEUR": 5,
-                 "À VÉRIFIER": 6}
+        order = {"ARTISTE/TITRE MANQUANT": 0, "SOUS-GENRE TECHNO": 1,
+                 "ACID À CONFIRMER": 2, "GENRE MANQUANT": 3,
+                 "ANNÉE MANQUANTE": 4, "ANNÉE INTROUVABLE": 4,
+                 "TITRE À NETTOYER": 5, "GENRE": 6, "MINEUR": 7,
+                 "À VÉRIFIER": 8}
         items.sort(key=lambda i: (1 if i["skipped"] else 0,
                                   order.get(i["priority"], 9),
                                   -(i["bpm"] or 0), i["artist"].lower()))
@@ -4477,6 +4538,8 @@ class Core:
                         "year": it["year"], "priority": it["priority"],
                         "choices": it["choices"], "skipped": it["skipped"],
                         "mark": it.get("mark", ""),
+                        "artist_prop": it.get("artist_prop", ""),
+                        "title_prop": it.get("title_prop", ""),
                         "genre_src": it.get("genre_src", ""),
                         "year_src": it.get("year_src", ""),
                         "exists": bool(path),
@@ -4534,6 +4597,17 @@ class Core:
             if k != key:
                 return m.group(0)
             hit[0] += 1
+
+            newhead = head
+            for attr, val in (("ARTIST", patch.get("artist")),
+                              ("TITLE", patch.get("title"))):
+                if val:
+                    if ('%s="' % attr) in newhead:
+                        newhead = re.sub(r'%s="[^"]*"' % attr,
+                                         '%s="%s"' % (attr, esc(val)), newhead)
+                    else:
+                        newhead = newhead[:-1] + ' %s="%s">' % (attr, esc(val))
+            head = newhead
 
             def fix_info(im):
                 s = im.group(0)
@@ -4631,6 +4705,18 @@ class Core:
         ok, err = self._review_write_nml(it["key"], patch)
         if not ok:
             return {"ok": False, "error": err}
+        if patch.get("artist") or patch.get("title"):
+            path = self._review_resolve_path(it["key"])
+            if path and os.path.isfile(path):
+                try:
+                    write_tags(path, patch.get("artist") or it.get("artist", ""),
+                               patch.get("title") or it.get("title", ""))
+                except Exception:
+                    pass
+            if patch.get("artist"):
+                it["artist"] = patch["artist"]
+            if patch.get("title"):
+                it["title"] = patch["title"]
         if patch.get("genre"):
             self._review_learn_artist(it.get("artist", ""), patch["genre"])
         # provenance fichier : marquer done pour ne plus le proposer
@@ -4679,8 +4765,20 @@ class Core:
             if ok:
                 energies += 1
         self._rv_energy_fix = []
-        queue = [i for i, it in enumerate(items)
-                 if not it.get("done") and not it.get("skipped")]
+        cache = self._review_load_proposals()
+        queue = []
+        for i, it in enumerate(items):
+            if it.get("done") or it.get("skipped"):
+                continue
+            c = cache.get(it["key"]) or {}
+            need_year = not it.get("year") and not c.get("no_year")
+            need_genre = (it["priority"] in ("GENRE MANQUANT",
+                                             "SOUS-GENRE TECHNO", "GENRE",
+                                             "À VÉRIFIER")
+                          and not it.get("genre_src")
+                          and not c.get("no_genre"))
+            if need_year or need_genre:
+                queue.append(i)
         self._ae = {"queue": queue, "pos": 0, "years": 0, "props": 0,
                     "stop": False, "energies": energies}
         return {"ok": True, "total": len(queue), "energies": energies}
@@ -4748,8 +4846,14 @@ class Core:
                 continue
             artist, title = it.get("artist", ""), it.get("title", "")
             # --- année manquante : cascade + écriture directe ---
-            if not it.get("year"):
+            cache = self._review_load_proposals()
+            centry = dict(cache.get(it["key"]) or {})
+            if not it.get("year") and not centry.get("no_year"):
                 y, src = enr_find_year(artist, title)
+                if not y:
+                    centry["no_year"] = True
+                    cache[it["key"]] = centry
+                    self._review_save_proposals(cache)
                 if y:
                     ok, _err = self._review_write_nml(it["key"], {"year": y})
                     if ok:
@@ -4762,7 +4866,8 @@ class Core:
                             continue
             # --- genre à trouver / sous-genre à préciser : proposition ---
             if it["priority"] in ("GENRE MANQUANT", "SOUS-GENRE TECHNO",
-                                  "GENRE", "À VÉRIFIER"):
+                                  "GENRE", "À VÉRIFIER") \
+                    and not it.get("genre_src") and not centry.get("no_genre"):
                 cur = it.get("genre") or ""
                 prop, src = None, ""
                 # 1) table artiste (validations de l'utilisateur)
@@ -4785,8 +4890,12 @@ class Core:
                     it["genre"] = prop
                     it["genre_src"] = src
                     ae["props"] += 1
-                    cache = self._review_load_proposals()
-                    cache[it["key"]] = {"genre": prop, "src": src}
+                    centry.update({"genre": prop, "src": src})
+                    cache[it["key"]] = centry
+                    self._review_save_proposals(cache)
+                else:
+                    centry["no_genre"] = True
+                    cache[it["key"]] = centry
                     self._review_save_proposals(cache)
         return {"ok": True, "pos": ae["pos"], "total": len(ae["queue"]),
                 "years": ae["years"], "props": ae["props"],
