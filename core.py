@@ -4295,6 +4295,10 @@ class Core:
                     p = paths.get(idx, "")
                     if not p or not os.path.isfile(p):
                         self.send_error(404); return
+                    if "tc=1" in (q.query or ""):
+                        p = core._rv_transcode_wav(p)
+                        if not p:
+                            self.send_error(415); return
                     size = os.path.getsize(p)
                     mime = {".mp3": "audio/mpeg", ".m4a": "audio/mp4",
                             ".aac": "audio/aac", ".flac": "audio/flac",
@@ -4346,6 +4350,39 @@ class Core:
         self._rv_srv = srv
         self._rv_base = "http://127.0.0.1:%d" % srv.server_address[1]
         return self._rv_base
+
+    def _rv_transcode_wav(self, path):
+        """AIFF/ALAC & co -> WAV temporaire via ffmpeg (cache par mtime).
+        Renvoie le chemin du WAV, ou '' si transcodage impossible."""
+        import hashlib, subprocess, tempfile
+        ff = find_ffmpeg()
+        if not ff:
+            return ""
+        try:
+            tag = hashlib.sha1(("%s|%s" % (path, os.path.getmtime(path)))
+                               .encode("utf-8", "ignore")).hexdigest()[:20]
+        except Exception:
+            return ""
+        out = os.path.join(tempfile.gettempdir(), "djhelper_tc_%s.wav" % tag)
+        if os.path.isfile(out) and os.path.getsize(out) > 44:
+            return out
+        try:
+            kw = {}
+            if os.name == "nt":
+                kw["creationflags"] = 0x08000000        # CREATE_NO_WINDOW
+            r = subprocess.run([ff, "-y", "-v", "error", "-i", path,
+                                "-map", "0:a:0", "-c:a", "pcm_s16le", out],
+                               capture_output=True, timeout=120, **kw)
+            if r.returncode == 0 and os.path.isfile(out) \
+                    and os.path.getsize(out) > 44:
+                return out
+        except Exception:
+            pass
+        try:
+            os.path.isfile(out) and os.remove(out)
+        except Exception:
+            pass
+        return ""
 
     def review_scan(self):
         try:

@@ -1705,6 +1705,26 @@ if (navigator.mediaDevices && navigator.mediaDevices.addEventListener){
   navigator.mediaDevices.addEventListener('devicechange', rvReloadAudio);
 }
 
+// Formats que le moteur n'affiche pas nativement (AIFF, ALAC…) :
+// au premier échec de lecture, redemander une version transcodée en WAV.
+$('rv-audio').addEventListener('error', () => {
+  const au = $('rv-audio');
+  if (!au.src) return;
+  if (au.src.indexOf('tc=1') >= 0){
+    au.style.display = 'none';
+    $('rv-missing').textContent = '⚠ Format non lisible — fichier peut-être endommagé (voir onglet Intégrité).';
+    $('rv-missing').style.display = 'block';
+    return;
+  }
+  const wasPlaying = rvAudioWanted;
+  au.src = au.src + (au.src.indexOf('?') >= 0 ? '&' : '?') + 'tc=1';
+  au.load();
+  if (wasPlaying) au.play().catch(() => {});
+});
+let rvAudioWanted = false;
+$('rv-audio').addEventListener('play', () => { rvAudioWanted = true; });
+$('rv-audio').addEventListener('pause', () => { rvAudioWanted = false; });
+
 $('rv-audio-reset').addEventListener('click', rvReloadAudio);
 document.querySelectorAll('.rv-mark').forEach(b => {
   b.addEventListener('click', () => {
