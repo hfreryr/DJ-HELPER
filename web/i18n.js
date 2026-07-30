@@ -369,7 +369,7 @@ Object.assign(I18N_EN, {
   "ARTISTE/TITRE MANQUANT": "MISSING ARTIST/TITLE",
   "TITRE À NETTOYER": "TITLE TO CLEAN",
   "✓ Titre nettoyé proposé — corrige si besoin puis valide": "✓ Cleaned title suggested — adjust if needed then confirm",
-  "✓ Déduit du nom de fichier — corrige si besoin puis valide": "✓ Inferred from file name — adjust if needed then confirm",
+  "✓ Déduit du nom de fichier — corrige, ajoute genre/année si tu les connais, puis valide": "✓ Inferred from file name — adjust, add genre/year if you know them, then confirm",
   "Artiste": "Artist",
   "Titre": "Title",
   "Écoute et corrige en un clic les morceaux au classement incertain": "Listen and fix uncertain classifications in one click",

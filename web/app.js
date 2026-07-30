@@ -1579,7 +1579,7 @@ function rvRenderItem(){
     $('rv-title-input').value = it.title_prop || it.title || '';
     $('rv-idfix-lab').textContent = it.priority === 'TITRE À NETTOYER'
       ? '✓ Titre nettoyé proposé — corrige si besoin puis valide'
-      : '✓ Déduit du nom de fichier — corrige si besoin puis valide';
+      : '✓ Déduit du nom de fichier — corrige, ajoute genre/année si tu les connais, puis valide';
   } else {
     idfix.style.display = 'none';
     $('rv-artist-input').value = '';
@@ -1738,7 +1738,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.4.2';
+const APP_VERSION = 'v1.4.3';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
