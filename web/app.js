@@ -1573,6 +1573,7 @@ function rvRenderItem(){
     $('rv-missing').style.display = 'block';
   }
   const idfix = $('rv-idfix');
+  if (idfix)
   if (it.priority === 'ARTISTE/TITRE MANQUANT' || it.priority === 'TITRE À NETTOYER'){
     idfix.style.display = '';
     $('rv-artist-input').value = it.artist_prop || it.artist || '';
@@ -1615,7 +1616,7 @@ async function rvApply(patch){
   if (!patch.genre && sel) patch.genre = sel;
   if (!patch.genre && it.genre) patch.genre = it.genre;   // « valider tel quel »
   if (yr && yr > 1900) patch.year = yr;
-  if ($('rv-idfix').style.display !== 'none'){
+  if ($('rv-idfix') && $('rv-idfix').style.display !== 'none'){
     const na = $('rv-artist-input').value.trim();
     const nt = $('rv-title-input').value.trim();
     if (na && na !== it.artist) patch.artist = na;
@@ -1738,7 +1739,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.4.3';
+const APP_VERSION = 'v1.4.4';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
