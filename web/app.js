@@ -1738,8 +1738,11 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
+const APP_VERSION = 'v1.4.2';
+
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
+  try { $('app-version').textContent = APP_VERSION; } catch (e){}
   API = window.pywebview.api;
   // langue : lue depuis la config AVANT tout rendu (défaut anglais)
   try {

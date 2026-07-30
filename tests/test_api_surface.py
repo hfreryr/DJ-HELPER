@@ -12,6 +12,14 @@ def test_front_calls_are_exposed():
     missing = calls - api
     assert not missing, "Méthodes appelées par le front mais absentes d'Api: %s" % sorted(missing)
 
+
+
+def test_app_version_format():
+    import re
+    js = open(os.path.join(HERE, "web", "app.js"), encoding="utf-8").read()
+    m = re.search(r"const APP_VERSION = '(v\d+\.\d+\.\d+)'", js)
+    assert m, "APP_VERSION absente ou mal formée dans app.js"
+
 if __name__ == "__main__":
-    test_front_calls_are_exposed()
-    print("surface API front/back cohérente ✅")
+    test_app_version_format()
+    print("APP_VERSION présente et bien formée ✅")

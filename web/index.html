@@ -54,8 +54,13 @@
     </nav>
 
     <div class="status-popup" id="status-popup" style="display:none;"></div>
-    <div class="lang-mini"><span id="btn-lang-fr" title="Interface en français">FR</span><span class="sep">·</span><span id="btn-lang-en" title="Interface in English">EN</span></div>
-    <button class="sidebar-foot" id="status-btn"><span class="dot" id="conn-dot"></span> <span id="conn-label">Statut</span></button>
+    <div class="sidebar-bottom">
+      <div class="lang-row">
+        <span class="lang-mini"><svg class="lang-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 010 18"/><path d="M12 3a14 14 0 000 18"/></svg><span id="btn-lang-fr" title="Interface en français">FR</span><span class="sep">·</span><span id="btn-lang-en" title="Interface in English">EN</span></span>
+        <span class="app-version" id="app-version"></span>
+      </div>
+      <button class="sidebar-foot" id="status-btn"><span class="dot" id="conn-dot"></span> <span id="conn-label">Statut</span></button>
+    </div>
   </aside>
 
   <!-- ================= MAIN ================= -->

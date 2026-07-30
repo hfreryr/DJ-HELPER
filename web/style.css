@@ -370,7 +370,13 @@ body{
 .lang-toggle .btn.active{border-color:var(--accent); color:var(--accent);}
 
 /* Toggle de langue compact (sidebar) */
-.lang-mini{padding:6px 22px 2px; font-size:11.5px; color:var(--text-3); letter-spacing:.4px;}
+.sidebar-bottom{margin-top:auto; padding-bottom:6px;}
+.sidebar-bottom .sidebar-foot{margin-top:0;}
+.lang-row{display:flex; align-items:center; justify-content:space-between;
+  padding:6px 14px 4px 12px; font-size:11.5px; color:var(--text-3);}
+.lang-globe{width:13px; height:13px; margin-right:7px; vertical-align:-2px; opacity:.75;}
+.app-version{font-size:10.5px; color:var(--text-3); opacity:.7; letter-spacing:.3px;}
+.lang-mini{font-size:11.5px; color:var(--text-3); letter-spacing:.4px; display:inline-flex; align-items:center;}
 .lang-mini span{cursor:pointer;}
 .lang-mini .sep{margin:0 6px; cursor:default;}
 .lang-mini span.active{color:var(--accent); font-weight:700;}
