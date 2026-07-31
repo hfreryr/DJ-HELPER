@@ -472,7 +472,7 @@
 "assalm": {
 "genres": {
 "Techno dark": 1,
-"Techno downtempo": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -2203,13 +2203,13 @@
 "aparde": {
 "genres": {
 "House deep": 1,
-"Techno downtempo": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
 "arnodd": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -3162,7 +3162,7 @@
 },
 "afterlife": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -3396,7 +3396,7 @@
 },
 "andromeda": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -3849,7 +3849,7 @@
 },
 "blackroserec": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -3959,7 +3959,7 @@
 "bonobo": {
 "genres": {
 "House deep": 1,
-"Techno downtempo": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -4481,7 +4481,7 @@
 },
 "dnox": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -4595,7 +4595,7 @@
 },
 "drp": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -4692,7 +4692,7 @@
 },
 "darksky": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -6465,7 +6465,7 @@
 },
 "jonhopkins": {
 "genres": {
-"Techno chill": 1,
+"Techno melodic": 1,
 "Techno progressive": 1,
 "House deep": 2
 },
@@ -7227,7 +7227,7 @@
 },
 "lunardream": {
 "genres": {
-"Techno downtempo": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -7606,7 +7606,7 @@
 },
 "mattlange": {
 "genres": {
-"Techno chill": 2
+"Techno melodic": 2
 },
 "source": "session"
 },
@@ -7977,7 +7977,7 @@
 },
 "nto": {
 "genres": {
-"Techno chill": 3
+"Techno melodic": 3
 },
 "source": "session"
 },
@@ -8414,7 +8414,7 @@
 },
 "pamparecordsofficial": {
 "genres": {
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -9001,7 +9001,7 @@
 "genres": {
 "Techno hard": 1,
 "Techno acid": 1,
-"Techno chill": 1
+"Techno melodic": 1
 },
 "source": "session"
 },
@@ -9050,7 +9050,7 @@
 },
 "rone": {
 "genres": {
-"Techno downtempo": 3
+"Techno melodic": 3
 },
 "source": "session"
 },

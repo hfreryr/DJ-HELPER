@@ -4341,9 +4341,9 @@ class Core:
                       "House disco", "French touch", "French touch 2.0",
                       "EDM/Big room", "Future rave",
                       "Techno", "Techno EBM", "Techno acid", "Techno breizh",
-                      "Techno chill", "Techno dark", "Techno downtempo",
-                      "Techno fast", "Techno groove", "Techno hard",
-                      "Techno mikro", "Techno progressive", "Techno sympa",
+                      "Techno dark", "Techno fast", "Techno groove",
+                      "Techno hard", "Techno melodic", "Techno mikro",
+                      "Techno progressive", "Techno sympa",
                       "Rap/Hip-hop", "Latino/Reggaeton",
                       "Reggae/Dancehall", "Autre"]
     _REVIEW_TECHNO_CHOICES = ["Techno acid", "Techno hard", "Techno dark",
