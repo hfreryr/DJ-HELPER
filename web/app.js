@@ -1574,25 +1574,29 @@ function rvRenderItem(){
   }
   const idfix = $('rv-idfix');
   if (idfix){
+  idfix.style.display = '';
   const hasClean = it.title_prop && it.title_prop !== it.title;
+  const lab = $('rv-idfix-lab');
   if (it.priority === 'ARTISTE/TITRE MANQUANT'){
-    idfix.style.display = '';
     $('rv-keep-title').style.display = 'none';
     $('rv-artist-input').value = it.artist_prop || it.artist || '';
     $('rv-title-input').value = it.title_prop || it.title || '';
-    $('rv-idfix-lab').textContent = '✓ Déduit du nom de fichier — corrige, ajoute genre/année si tu les connais, puis valide';
+    lab.textContent = '✓ Déduit du nom de fichier — corrige, ajoute genre/année si tu les connais, puis valide';
+    lab.style.display = '';
   } else if (hasClean){
-    idfix.style.display = '';
     $('rv-keep-title').style.display = '';
     $('rv-artist-input').value = it.artist || '';
     $('rv-title-input').value = it.title_prop;
-    $('rv-idfix-lab').textContent = it.priority === 'TITRE À NETTOYER'
+    lab.textContent = it.priority === 'TITRE À NETTOYER'
       ? '✓ Titre nettoyé proposé — corrige si besoin puis valide'
       : '✓ Titre nettoyé proposé — il sera appliqué en même temps que ta validation';
+    lab.style.display = '';
   } else {
-    idfix.style.display = 'none';
-    $('rv-artist-input').value = '';
-    $('rv-title-input').value = '';
+    // pas de proposition : champs éditables librement, avec l'état actuel
+    $('rv-keep-title').style.display = 'none';
+    $('rv-artist-input').value = it.artist || '';
+    $('rv-title-input').value = it.title || '';
+    lab.style.display = 'none';
   }
   }
   const box = $('rv-choices');
@@ -1770,7 +1774,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.2';
+const APP_VERSION = 'v1.5.3';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
