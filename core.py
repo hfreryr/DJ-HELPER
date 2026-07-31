@@ -1474,6 +1474,53 @@ def _enr_year_bandcamp(a, t):
     return None
 
 
+_ENR_SC_CID = [None]
+
+
+def _enr_sc_client_id():
+    """Extrait le client_id public des bundles JS de soundcloud.com (cache)."""
+    import re
+    if _ENR_SC_CID[0] is not None:
+        return _ENR_SC_CID[0]
+    _ENR_SC_CID[0] = ""
+    h = _enr_geth("https://soundcloud.com/") or ""
+    for src in re.findall(r'src="(https://a-v2\.sndcdn\.com/assets/[^"]+\.js)"', h)[::-1]:
+        js = _enr_geth(src, 20) or ""
+        m = re.search(r'client_id\s*[:=]\s*"([A-Za-z0-9]{20,40})"', js)
+        if m:
+            _ENR_SC_CID[0] = m.group(1)
+            break
+    return _ENR_SC_CID[0]
+
+
+def _enr_year_soundcloud(a, t):
+    import urllib.parse
+    cid = _enr_sc_client_id()
+    if not cid:
+        return None
+    d = _enr_getj("https://api-v2.soundcloud.com/search/tracks?q=%s"
+                  "&client_id=%s&limit=8"
+                  % (urllib.parse.quote("%s %s" % (a, t)), cid))
+    if not d or not d.get("collection"):
+        return None
+    na, nt = _enr_norm(a), _enr_norm(t)
+    ys = []
+    for r in d["collection"][:8]:
+        user = _enr_norm((r.get("user") or {}).get("username", ""))
+        name = _enr_norm(r.get("title", ""))
+        if nt[:7] not in name:
+            continue
+        if na[:6] not in user and na[:6] not in name:
+            continue
+        for f in ("release_date", "display_date", "created_at"):
+            v = (r.get(f) or "")[:4]
+            if v.isdigit():
+                ys.append(int(v))
+                break
+    y = min(ys) if ys else None
+    return y if y and 2005 <= y <= 2030 else None
+
+
 def enr_find_year(artist, title):
     """Cascade année ; renvoie (année, source) ou (None, None)."""
     import time
@@ -1485,7 +1532,8 @@ def enr_find_year(artist, title):
                          ("Deezer", _enr_year_deezer, 1950),
                          ("Discogs", _enr_year_discogs, 1950),
                          ("Beatport", _enr_year_beatport, 1990),
-                         ("Bandcamp", _enr_year_bandcamp, 1990)):
+                         ("Bandcamp", _enr_year_bandcamp, 1990),
+                         ("SoundCloud", _enr_year_soundcloud, 2005)):
         try:
             y = fn(a, t)
         except Exception:
@@ -4291,18 +4339,16 @@ class Core:
                       "Dance-Eurodance", "House", "House deep", "House tech",
                       "House disco", "French touch", "EDM/Big room",
                       "Techno", "Techno EBM", "Techno acid",
-                      "Techno acid downtempo", "Techno acid hard",
-                      "Techno acid medium", "Techno acid selecta",
-                      "Techno acid trippy", "Techno berlin", "Techno breizh",
+                      "Techno berlin", "Techno breizh",
                       "Techno chill", "Techno dark", "Techno downtempo",
                       "Techno fast", "Techno groove", "Techno hard",
-                      "Techno hardtech", "Techno medium", "Techno melodic",
+                      "Techno hardtech", "Techno melodic",
                       "Techno mikro", "Techno organic", "Techno progressive",
-                      "Techno sympa", "Techno turbo hard",
+                      "Techno sympa",
                       "Rap/Hip-hop", "Latino/Reggaeton",
                       "Reggae/Dancehall", "Autre"]
     _REVIEW_TECHNO_CHOICES = ["Techno acid", "Techno hard", "Techno berlin",
-                              "Techno medium", "Techno groove", "Techno fast"]
+                              "Techno breizh", "Techno groove", "Techno fast"]
 
     def _review_audio_server(self):
         """Démarre (une fois) le serveur audio local ; renvoie 'http://127.0.0.1:port'."""
@@ -4858,10 +4904,20 @@ class Core:
     # Année trouvée -> écrite directement dans collection.nml (item résolu).
     # Genre trouvé  -> proposé dans la file (badge source), validation en 1 clic.
 
+    _ENR_CASCADE_VER = 2   # incrémenter à chaque nouvelle source d'année
+
     def auto_enrich_begin(self):
         items = getattr(self, "_rv_items", None)
         if items is None:
             return {"ok": False, "error": "lance d'abord l'analyse"}
+        # nouvelle source d'année disponible -> re-tenter les échecs passés
+        cache0 = self._review_load_proposals()
+        if cache0.get("_cascade_ver") != self._ENR_CASCADE_VER:
+            for k, v in list(cache0.items()):
+                if isinstance(v, dict) and v.get("no_year"):
+                    v.pop("no_year", None)
+            cache0["_cascade_ver"] = self._ENR_CASCADE_VER
+            self._review_save_proposals(cache0)
         # étoiles manquantes calculables localement : écrites d'un bloc
         energies = 0
         for key, nrg in getattr(self, "_rv_energy_fix", []) or []:

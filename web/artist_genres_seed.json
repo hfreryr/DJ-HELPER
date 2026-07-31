@@ -65,14 +65,7 @@
 "genres": {
 "French touch": 2,
 "Techno sympa": 2,
-"Techno acid hard": 1,
-"Techno hard": 3
-},
-"source": "session"
-},
-"gesaffelstein": {
-"genres": {
-"Techno medium": 13,
+"Techno acid": 1,
 "Techno hard": 3
 },
 "source": "session"
@@ -97,7 +90,6 @@
 },
 "vtss": {
 "genres": {
-"Techno medium": 5,
 "Techno hard": 3
 },
 "source": "session"
@@ -258,7 +250,6 @@
 "fovos": {
 "genres": {
 "Techno sympa": 1,
-"Techno medium": 1,
 "Techno berlin": 1
 },
 "source": "session"
@@ -273,7 +264,7 @@
 },
 "999999999": {
 "genres": {
-"Techno acid medium": 2,
+"Techno acid": 2,
 "Techno fast": 1,
 "Techno berlin": 1
 },
@@ -287,7 +278,7 @@
 },
 "teknogeneration": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -309,21 +300,15 @@
 },
 "source": "session"
 },
-"sdsm": {
-"genres": {
-"Techno turbo hard": 1
-},
-"source": "session"
-},
 "ben9mm": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "benfraser": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -341,25 +326,25 @@
 },
 "immersion": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "lochi": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "maketech": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "missdjax": {
 "genres": {
-"Techno acid hard": 1,
+"Techno acid": 1,
 "Techno fast": 1,
 "Techno hard": 1
 },
@@ -367,7 +352,7 @@
 },
 "osmo": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -379,77 +364,47 @@
 },
 "jacidorex": {
 "genres": {
-"Techno acid medium": 1,
-"Techno acid": 2,
-"Techno hard": 1,
-"Techno acid hard": 1
+"Techno acid": 4,
+"Techno hard": 1
 },
 "source": "session"
 },
 "mhairi": {
 "genres": {
-"Techno acid medium": 1,
-"Techno acid trippy": 1,
+"Techno acid": 2,
 "Techno berlin": 1
 },
 "source": "session"
 },
 "sashtek": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "alignment": {
 "genres": {
 "Techno hard": 1,
-"Techno medium": 1,
-"Techno acid": 3,
-"Techno berlin": 1,
-"Techno acid hard": 2
+"Techno acid": 5,
+"Techno berlin": 1
 },
 "source": "session"
 },
 "cassieraptor": {
 "genres": {
-"Techno hard": 3,
-"Techno medium": 2
+"Techno hard": 3
+},
+"source": "session"
+},
+"gesaffelstein": {
+"genres": {
+"Techno hard": 3
 },
 "source": "session"
 },
 "irishfreedomfighters": {
 "genres": {
 "Techno hard": 1
-},
-"source": "session"
-},
-"assalm": {
-"genres": {
-"Techno medium": 2
-},
-"source": "session"
-},
-"diekrupps": {
-"genres": {
-"Techno medium": 1
-},
-"source": "session"
-},
-"lexdigital": {
-"genres": {
-"Techno medium": 1
-},
-"source": "session"
-},
-"matteotura": {
-"genres": {
-"Techno medium": 2
-},
-"source": "session"
-},
-"mobiius": {
-"genres": {
-"Techno medium": 1
 },
 "source": "session"
 },
@@ -1127,7 +1082,7 @@
 "EDM/Big room": 23,
 "French touch": 25,
 "Dance-Eurodance": 2,
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -2911,7 +2866,7 @@
 },
 "753": {
 "genres": {
-"Techno acid trippy": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -2941,14 +2896,13 @@
 },
 "airod": {
 "genres": {
-"Techno acid selecta": 1,
-"Techno acid": 2
+"Techno acid": 3
 },
 "source": "session"
 },
 "akkide": {
 "genres": {
-"Techno acid trippy": 2,
+"Techno acid": 2,
 "Techno berlin": 1
 },
 "source": "session"
@@ -2961,7 +2915,7 @@
 },
 "alvabeat": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -3177,13 +3131,7 @@
 },
 "andersonnoise": {
 "genres": {
-"Techno acid hard": 1
-},
-"source": "session"
-},
-"andressconde": {
-"genres": {
-"Techno turbo hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -3256,7 +3204,7 @@
 },
 "aphextwin": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -3274,7 +3222,7 @@
 },
 "armanjohn": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -3355,7 +3303,7 @@
 },
 "axelblanc": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -3484,8 +3432,7 @@
 },
 "basswell": {
 "genres": {
-"Techno acid selecta": 1,
-"Techno acid hard": 1,
+"Techno acid": 2,
 "Techno hard": 1
 },
 "source": "session"
@@ -3540,8 +3487,7 @@
 },
 "belocca": {
 "genres": {
-"Techno acid medium": 1,
-"Techno acid": 2
+"Techno acid": 3
 },
 "source": "session"
 },
@@ -3621,7 +3567,7 @@
 },
 "birdynamnam": {
 "genres": {
-"Techno acid downtempo": 1,
+"Techno acid": 1,
 "EDM/Big room": 1
 },
 "source": "session"
@@ -3773,15 +3719,9 @@
 },
 "source": "session"
 },
-"borisbrejcha": {
-"genres": {
-"Techno medium": 1
-},
-"source": "session"
-},
 "bossta": {
 "genres": {
-"Techno acid trippy": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -3841,12 +3781,6 @@
 },
 "source": "session"
 },
-"brutalismus3000": {
-"genres": {
-"Techno turbo hard": 1
-},
-"source": "session"
-},
 "bryancountach": {
 "genres": {
 "Rap/Hip-hop": 1
@@ -3855,7 +3789,7 @@
 },
 "bucky": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -3949,7 +3883,7 @@
 },
 "carlshorts": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4023,9 +3957,8 @@
 },
 "charliesparksuk": {
 "genres": {
-"Techno acid hard": 2,
-"Techno fast": 1,
-"Techno acid": 1
+"Techno acid": 3,
+"Techno fast": 1
 },
 "source": "session"
 },
@@ -4191,7 +4124,7 @@
 },
 "comtruise": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4264,7 +4197,7 @@
 },
 "cromagnon": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4348,7 +4281,7 @@
 },
 "djjordan": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4372,7 +4305,7 @@
 },
 "djt1000": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4384,7 +4317,7 @@
 },
 "djtravisblaze": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4402,8 +4335,7 @@
 },
 "dlv": {
 "genres": {
-"Techno acid hard": 2,
-"Techno acid": 2
+"Techno acid": 4
 },
 "source": "session"
 },
@@ -4556,7 +4488,7 @@
 },
 "daxj": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4574,7 +4506,7 @@
 },
 "deborahdeluca": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4605,7 +4537,7 @@
 "demuja": {
 "genres": {
 "House": 1,
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -4661,7 +4593,7 @@
 },
 "dica": {
 "genres": {
-"Techno acid hard": 1,
+"Techno acid": 1,
 "Techno hard": 1
 },
 "source": "session"
@@ -4794,7 +4726,7 @@
 },
 "doruksen": {
 "genres": {
-"Techno acid hard": 2
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -4986,14 +4918,13 @@
 },
 "elfenberg": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "elibrown": {
 "genres": {
-"Techno acid": 1,
-"Techno acid trippy": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -5158,19 +5089,13 @@
 },
 "fjaak": {
 "genres": {
-"Techno acid medium": 2
+"Techno acid": 2
 },
 "source": "session"
 },
 "fkj": {
 "genres": {
 "Disco/Funk/Soul": 1
-},
-"source": "session"
-},
-"flkn": {
-"genres": {
-"Techno turbo hard": 1
 },
 "source": "session"
 },
@@ -5206,7 +5131,7 @@
 },
 "fatboyslim": {
 "genres": {
-"Techno acid downtempo": 1,
+"Techno acid": 1,
 "Dance-Eurodance": 2,
 "Rock": 1
 },
@@ -5235,7 +5160,7 @@
 },
 "felixkrocher": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -5321,8 +5246,7 @@
 },
 "flymeon": {
 "genres": {
-"Techno hard": 5,
-"Techno medium": 2
+"Techno hard": 5
 },
 "source": "session"
 },
@@ -5346,8 +5270,7 @@
 },
 "fractions": {
 "genres": {
-"Techno acid hard": 1,
-"Techno acid selecta": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -5516,7 +5439,7 @@
 },
 "gehlektek": {
 "genres": {
-"Techno acid trippy": 1,
+"Techno acid": 1,
 "Techno hard": 1
 },
 "source": "session"
@@ -5628,7 +5551,7 @@
 },
 "goldgeisha": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -5720,7 +5643,7 @@
 },
 "hxtc": {
 "genres": {
-"Techno acid medium": 1,
+"Techno acid": 1,
 "House deep": 1
 },
 "source": "session"
@@ -5739,7 +5662,7 @@
 },
 "hamatsuki": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -5757,7 +5680,7 @@
 },
 "hardfloor": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -5806,8 +5729,7 @@
 },
 "hephaistos": {
 "genres": {
-"Techno acid hard": 1,
-"Techno acid": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -5838,12 +5760,6 @@
 "heusslenfoire": {
 "genres": {
 "Rap/Hip-hop": 4
-},
-"source": "session"
-},
-"highlite": {
-"genres": {
-"Techno medium": 1
 },
 "source": "session"
 },
@@ -5916,7 +5832,7 @@
 },
 "illiyakorniyenko": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -5952,8 +5868,7 @@
 },
 "inverruf": {
 "genres": {
-"Techno acid": 2,
-"Techno acid selecta": 1
+"Techno acid": 3
 },
 "source": "session"
 },
@@ -6061,14 +5976,13 @@
 },
 "jamesshinra": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "janvercauteren": {
 "genres": {
-"Techno acid": 1,
-"Techno acid selecta": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -6110,7 +6024,7 @@
 },
 "jaylumen": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -6128,8 +6042,7 @@
 },
 "jaess": {
 "genres": {
-"Techno acid selecta": 1,
-"Techno acid": 1,
+"Techno acid": 2,
 "Techno fast": 1
 },
 "source": "session"
@@ -6229,7 +6142,7 @@
 "joeyrisdon": {
 "genres": {
 "Techno hardtech": 1,
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -6285,7 +6198,7 @@
 },
 "jonasxenon": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -6303,7 +6216,7 @@
 },
 "joshwink": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -6334,7 +6247,7 @@
 },
 "julienriess": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -6460,9 +6373,8 @@
 },
 "kaspar": {
 "genres": {
-"Techno acid trippy": 1,
-"Techno dark": 1,
-"Techno acid": 1
+"Techno acid": 2,
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -6622,14 +6534,7 @@
 },
 "krlmx": {
 "genres": {
-"Techno acid": 2,
-"Techno acid selecta": 1
-},
-"source": "session"
-},
-"kurtleon": {
-"genres": {
-"Techno turbo hard": 1
+"Techno acid": 3
 },
 "source": "session"
 },
@@ -6763,7 +6668,7 @@
 },
 "lewanski": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -6787,8 +6692,7 @@
 },
 "lemane": {
 "genres": {
-"Techno acid selecta": 1,
-"Techno acid": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -6843,8 +6747,7 @@
 },
 "lillypalmer": {
 "genres": {
-"Techno acid hard": 1,
-"Techno acid medium": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -6980,12 +6883,6 @@
 },
 "source": "session"
 },
-"lowriders": {
-"genres": {
-"Techno turbo hard": 1
-},
-"source": "session"
-},
 "lulu": {
 "genres": {
 "Rap/Hip-hop": 1
@@ -7030,13 +6927,13 @@
 },
 "lukevibert": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "lunalucci": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7084,7 +6981,7 @@
 },
 "masteria": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7120,7 +7017,7 @@
 },
 "mezerg": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7150,21 +7047,19 @@
 },
 "moon": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "motvs": {
 "genres": {
-"Techno acid medium": 1,
-"Techno acid trippy": 1,
-"Techno acid": 1
+"Techno acid": 3
 },
 "source": "session"
 },
 "moy": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7314,22 +7209,19 @@
 },
 "marievaunt": {
 "genres": {
-"Techno acid": 1,
-"Techno acid medium": 1
+"Techno acid": 2
 },
 "source": "session"
 },
 "markdekoda": {
 "genres": {
-"Techno acid medium": 1,
-"Techno acid": 2
+"Techno acid": 3
 },
 "source": "session"
 },
 "markgreene": {
 "genres": {
-"Techno acid": 1,
-"Techno acid selecta": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -7475,7 +7367,7 @@
 },
 "mesotec": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7541,7 +7433,7 @@
 },
 "microlith": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7565,8 +7457,7 @@
 },
 "midnightvices": {
 "genres": {
-"Techno acid": 1,
-"Techno acid medium": 1,
+"Techno acid": 2,
 "Techno hard": 1
 },
 "source": "session"
@@ -7611,7 +7502,7 @@
 },
 "mintz": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7641,7 +7532,7 @@
 },
 "moderat": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -7798,15 +7689,14 @@
 },
 "ntbr": {
 "genres": {
-"Techno acid medium": 1,
-"Techno acid selecta": 1,
+"Techno acid": 2,
 "Techno hard": 1
 },
 "source": "session"
 },
 "nakadia": {
 "genres": {
-"Techno acid medium": 2
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -7934,8 +7824,7 @@
 },
 "nicomoreno": {
 "genres": {
-"Techno acid": 1,
-"Techno acid hard": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -7971,7 +7860,7 @@
 },
 "niotech": {
 "genres": {
-"Techno acid hard": 2
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -7995,13 +7884,13 @@
 },
 "noimage": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "nomad": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8013,7 +7902,7 @@
 },
 "nuclearhyde": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8189,7 +8078,7 @@
 },
 "pols": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8353,12 +8242,6 @@
 },
 "source": "session"
 },
-"philgonzo": {
-"genres": {
-"Techno medium": 3
-},
-"source": "session"
-},
 "philipbailey": {
 "genres": {
 "Disco/Funk/Soul": 1
@@ -8379,7 +8262,7 @@
 },
 "phuture": {
 "genres": {
-"Techno acid downtempo": 2
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -8533,7 +8416,7 @@
 },
 "remyx": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8545,7 +8428,7 @@
 },
 "robpm": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8672,16 +8555,14 @@
 },
 "regal": {
 "genres": {
-"Techno acid selecta": 1,
-"Techno acid": 1,
-"Techno acid medium": 1
+"Techno acid": 3
 },
 "source": "session"
 },
 "reinierzonneveld": {
 "genres": {
 "Techno berlin": 1,
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8765,8 +8646,7 @@
 },
 "robacid": {
 "genres": {
-"Techno acid trippy": 1,
-"Techno acid": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -8785,7 +8665,7 @@
 "robertbabicz": {
 "genres": {
 "Techno hard": 1,
-"Techno acid hard": 1,
+"Techno acid": 1,
 "Techno chill": 1
 },
 "source": "session"
@@ -8810,7 +8690,7 @@
 },
 "roentgenlimiter": {
 "genres": {
-"Techno acid selecta": 1,
+"Techno acid": 1,
 "Techno hard": 1
 },
 "source": "session"
@@ -8853,7 +8733,7 @@
 },
 "royoftheravers": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8883,8 +8763,7 @@
 },
 "rudosa": {
 "genres": {
-"Techno acid": 1,
-"Techno acid hard": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -8938,7 +8817,7 @@
 },
 "sierra": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -8986,8 +8865,7 @@
 },
 "swart": {
 "genres": {
-"Techno acid": 1,
-"Techno acid selecta": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -9091,8 +8969,7 @@
 },
 "saralandry": {
 "genres": {
-"Techno acid": 4,
-"Techno acid hard": 1
+"Techno acid": 5
 },
 "source": "session"
 },
@@ -9134,7 +9011,7 @@
 },
 "scove": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -9224,7 +9101,7 @@
 },
 "shlmo": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -9303,12 +9180,6 @@
 },
 "source": "session"
 },
-"sinaxx": {
-"genres": {
-"Techno medium": 1
-},
-"source": "session"
-},
 "skiptheuse": {
 "genres": {
 "Rock": 1
@@ -9329,7 +9200,7 @@
 },
 "sluhg": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -9341,7 +9212,7 @@
 },
 "smashstereo": {
 "genres": {
-"Techno acid downtempo": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -9408,14 +9279,13 @@
 "space92": {
 "genres": {
 "Techno berlin": 1,
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "spartaque": {
 "genres": {
-"Techno acid medium": 1,
-"Techno acid": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -9459,12 +9329,6 @@
 "stereosoulz": {
 "genres": {
 "House": 1
-},
-"source": "session"
-},
-"stretch": {
-"genres": {
-"Techno turbo hard": 1
 },
 "source": "session"
 },
@@ -9512,7 +9376,7 @@
 },
 "svetec": {
 "genres": {
-"Techno acid hard": 1,
+"Techno acid": 1,
 "Techno hard": 1
 },
 "source": "session"
@@ -9533,7 +9397,7 @@
 },
 "sylviemaziarz": {
 "genres": {
-"Techno acid selecta": 2
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -9614,7 +9478,7 @@
 },
 "tassid": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -9644,7 +9508,7 @@
 },
 "teenagemutants": {
 "genres": {
-"Techno acid medium": 1,
+"Techno acid": 1,
 "Techno dark": 1
 },
 "source": "session"
@@ -9657,7 +9521,7 @@
 },
 "teikaro": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -9861,8 +9725,7 @@
 },
 "theprodigy": {
 "genres": {
-"Techno acid downtempo": 1,
-"Techno acid": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -9959,15 +9822,14 @@
 },
 "thomashelmich": {
 "genres": {
-"Techno acid trippy": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "thomasschumacher": {
 "genres": {
-"Techno acid": 2,
-"Techno berlin": 1,
-"Techno acid medium": 1
+"Techno acid": 3,
+"Techno berlin": 1
 },
 "source": "session"
 },
@@ -10004,7 +9866,7 @@
 },
 "tikishan": {
 "genres": {
-"Techno acid trippy": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -10158,10 +10020,8 @@
 },
 "vcl": {
 "genres": {
-"Techno acid hard": 1,
-"Techno acid selecta": 2,
-"Techno fast": 1,
-"Techno acid medium": 1
+"Techno acid": 4,
+"Techno fast": 1
 },
 "source": "session"
 },
@@ -10245,7 +10105,7 @@
 },
 "viers": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -10263,9 +10123,8 @@
 },
 "viperdiva": {
 "genres": {
-"Techno acid": 2,
-"Techno hard": 1,
-"Techno acid selecta": 1
+"Techno acid": 3,
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -10289,19 +10148,13 @@
 },
 "vizionn": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
 "vladimircauchemar": {
 "genres": {
 "Rap/Hip-hop": 2
-},
-"source": "session"
-},
-"vorteks": {
-"genres": {
-"Techno turbo hard": 1
 },
 "source": "session"
 },
@@ -10313,8 +10166,7 @@
 },
 "wndrlst": {
 "genres": {
-"Techno acid": 1,
-"Techno acid hard": 1
+"Techno acid": 2
 },
 "source": "session"
 },
@@ -10399,7 +10251,7 @@
 },
 "xeniaua": {
 "genres": {
-"Techno acid hard": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -10532,8 +10384,7 @@
 },
 "zeltak": {
 "genres": {
-"Techno acid hard": 1,
-"Techno acid": 4,
+"Techno acid": 5,
 "Techno hard": 1
 },
 "source": "session"
@@ -10606,7 +10457,7 @@
 },
 "deadmau5": {
 "genres": {
-"Techno acid downtempo": 1,
+"Techno acid": 1,
 "EDM/Big room": 1,
 "House deep": 1,
 "Techno sympa": 2
@@ -10621,7 +10472,7 @@
 },
 "disruption": {
 "genres": {
-"Techno acid selecta": 1
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -10658,12 +10509,6 @@
 "puremind": {
 "genres": {
 "Techno hard": 2
-},
-"source": "session"
-},
-"monsieurlapin": {
-"genres": {
-"Techno medium": 1
 },
 "source": "session"
 },
@@ -10705,8 +10550,7 @@
 },
 "rgie": {
 "genres": {
-"Techno acid": 1,
-"Techno acid selecta": 2
+"Techno acid": 3
 },
 "source": "session"
 },
@@ -10784,7 +10628,7 @@
 },
 "julianayamasaki": {
 "genres": {
-"Techno acid medium": 1
+"Techno acid": 1
 },
 "source": "session"
 },
