@@ -1774,7 +1774,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.3';
+const APP_VERSION = 'v1.5.4';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
