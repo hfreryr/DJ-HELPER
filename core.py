@@ -4243,6 +4243,28 @@ class Core:
         except Exception:
             pass
 
+    def _review_approved_path(self):
+        return os.path.join(os.path.expanduser("~"), ".djhelper",
+                            "review_approved.json")
+
+    def _review_load_approved(self):
+        import json
+        try:
+            with open(self._review_approved_path(), encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception:
+            return set()
+
+    def _review_save_approved(self, keys):
+        import json
+        try:
+            p = self._review_approved_path()
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(sorted(keys), f, ensure_ascii=False)
+        except Exception:
+            pass
+
     def _review_skips_path(self):
         return os.path.join(os.path.expanduser("~"), ".djhelper",
                             "review_skips.json")
@@ -4419,6 +4441,7 @@ class Core:
                 props[it.get("key", "")] = (i, it)
 
         skips = self._review_load_skips()
+        approved = self._review_load_approved()
         self._rv_energy_fix = []
         items, complete = [], 0
         for e in coll.findall("ENTRY"):
@@ -4427,6 +4450,10 @@ class Core:
                 continue
             key = ((loc.get("VOLUME") or "") + (loc.get("DIR") or "")
                    + (loc.get("FILE") or ""))
+            if key in approved:
+                props.pop(key, None)
+                complete += 1
+                continue
             info = e.find("INFO")
             genre = (info.get("GENRE") or "").strip() if info is not None else ""
             rdate = (info.get("RELEASE_DATE") or "").strip() if info is not None else ""
@@ -4773,6 +4800,35 @@ class Core:
         if it["key"] in skips:
             skips.discard(it["key"])
             self._review_save_skips(skips)
+        return {"ok": True}
+
+    def review_approve(self, item_id):
+        """'Rien à corriger' : l'état actuel du morceau est bon, ne plus
+        jamais le signaler (dictionnaire personnel, persistant)."""
+        items = getattr(self, "_rv_items", None)
+        try:
+            it = items[int(item_id)]
+        except Exception:
+            return {"ok": False}
+        approved = self._review_load_approved()
+        approved.add(it["key"])
+        self._review_save_approved(approved)
+        it["done"] = True
+        cache = self._review_load_proposals()
+        if it["key"] in cache:
+            del cache[it["key"]]
+            self._review_save_proposals(cache)
+        skips = self._review_load_skips()
+        if it["key"] in skips:
+            skips.discard(it["key"])
+            self._review_save_skips(skips)
+        fi = it.get("file_index")
+        if fi is not None and getattr(self, "_review_data", None):
+            try:
+                self._review_data["items"][fi]["status"] = "done"
+                self._review_save_file()
+            except Exception:
+                pass
         return {"ok": True}
 
     def review_skip(self, item_id):

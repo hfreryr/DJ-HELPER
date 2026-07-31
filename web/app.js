@@ -1643,6 +1643,21 @@ async function rvApply(patch){
   rvRenderItem();
 }
 
+async function rvApprove(){
+  const it = rvCurrent();
+  if (!it) return;
+  let r = null;
+  try { r = await API.review_approve(it.id); } catch (e){ r = null; }
+  if (!r || !r.ok) return;
+  rvItems = rvItems.filter(x => x.id !== it.id);
+  rvDone += 1;
+  const flt = rvFiltered();
+  if (rvIdx >= flt.length) rvIdx = 0;
+  if (rvFilter && !flt.length) rvFilter = '';
+  rvRenderSummary();
+  rvRenderItem();
+}
+
 async function rvSkip(){
   const it = rvCurrent();
   if (!it) return;
@@ -1674,6 +1689,8 @@ document.addEventListener('keydown', (e) => {
     if (it.choices && it.choices[i]) rvApply({ genre: it.choices[i] });
   } else if (e.key === 'Enter'){
     rvApply({});
+  } else if (e.key === 'r' || e.key === 'R'){
+    rvApprove();
   } else if (e.key === 'ArrowRight'){
     rvSkip();
   }
@@ -1686,6 +1703,7 @@ $('rv-online-stop').addEventListener('click', async () => {
 });
 $('rv-ok').addEventListener('click', () => rvApply({}));
 $('rv-skip').addEventListener('click', rvSkip);
+$('rv-approve').addEventListener('click', rvApprove);
 // Écouteurs branchés/débranchés : WebView2 fige la sortie audio du lecteur
 // sur le périphérique actif au chargement. On recharge le flux au changement
 // de périphérique, en préservant la position et l'état de lecture.
@@ -1739,7 +1757,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.4.4';
+const APP_VERSION = 'v1.5.0';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){

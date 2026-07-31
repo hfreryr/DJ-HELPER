@@ -226,6 +226,9 @@ class Api:
     def review_skip(self, item_id):
         return self.core.review_skip(item_id)
 
+    def review_approve(self, item_id):
+        return self.core.review_approve(item_id)
+
     def auto_enrich_begin(self):
         return self.core.auto_enrich_begin()
 

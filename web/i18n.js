@@ -362,6 +362,8 @@ Object.assign(I18N_EN, {
   "complets ·": "complete ·",
   "à corriger": "to fix",
   "Analyse impossible.": "Could not analyse.",
+  "Valider": "Confirm",
+  "✓ Rien à corriger": "✓ Nothing to fix",
   "Choisis un genre ou saisis une année avant de valider.": "Pick a genre or type a year before confirming.",
   "GENRE MANQUANT": "MISSING GENRE",
   "ANNÉE MANQUANTE": "MISSING YEAR",
