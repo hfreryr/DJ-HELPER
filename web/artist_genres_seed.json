@@ -63,16 +63,24 @@
 },
 "contrefacon": {
 "genres": {
-"French touch": 2,
-"Techno sympa": 2,
+"French touch": 3,
+"Techno sympa": 3,
 "Techno acid": 1,
 "Techno hard": 3
 },
 "source": "session"
 },
+"gesaffelstein": {
+"genres": {
+"French touch": 5,
+"Techno hard": 3,
+"Techno dark": 12
+},
+"source": "session"
+},
 "grandsoleil": {
 "genres": {
-"House": 3
+"French touch 2.0": 4
 },
 "source": "session"
 },
@@ -91,7 +99,14 @@
 "vtss": {
 "genres": {
 "Techno acid": 1,
-"Techno hard": 3
+"Techno hard": 7
+},
+"source": "session"
+},
+"vitalic": {
+"genres": {
+"French touch": 9,
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -114,6 +129,18 @@
 },
 "source": "session"
 },
+"justus": {
+"genres": {
+"Future rave": 5
+},
+"source": "session"
+},
+"gaspardauge": {
+"genres": {
+"French touch": 1
+},
+"source": "session"
+},
 "justice": {
 "genres": {
 "French touch": 39
@@ -123,6 +150,12 @@
 "earth": {
 "genres": {
 "Disco/Funk/Soul": 7
+},
+"source": "session"
+},
+"drumstate": {
+"genres": {
+"Techno groove": 1
 },
 "source": "session"
 },
@@ -229,6 +262,18 @@
 },
 "source": "session"
 },
+"foams": {
+"genres": {
+"French touch 2.0": 3
+},
+"source": "session"
+},
+"stgermain": {
+"genres": {
+"French touch 2.0": 2
+},
+"source": "session"
+},
 "pinkfloyd": {
 "genres": {
 "Rock": 2
@@ -250,8 +295,15 @@
 },
 "fovos": {
 "genres": {
-"Techno sympa": 1,
-"Techno berlin": 1
+"Techno dark": 4,
+"Future rave": 1
+},
+"source": "session"
+},
+"freedomfighters": {
+"genres": {
+"Techno acid": 1,
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -259,7 +311,20 @@
 "genres": {
 "Techno acid": 1,
 "Techno hard": 1,
+"French touch": 2,
 "House": 1
+},
+"source": "session"
+},
+"lexdigital": {
+"genres": {
+"Techno dark": 1
+},
+"source": "session"
+},
+"lick": {
+"genres": {
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -267,7 +332,7 @@
 "genres": {
 "Techno acid": 2,
 "Techno fast": 1,
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -373,7 +438,7 @@
 "mhairi": {
 "genres": {
 "Techno acid": 2,
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -386,26 +451,34 @@
 "alignment": {
 "genres": {
 "Techno hard": 1,
-"Techno acid": 5,
-"Techno berlin": 1
+"Techno acid": 6,
+"Techno dark": 1
 },
 "source": "session"
 },
 "cassieraptor": {
 "genres": {
-"Techno hard": 4
-},
-"source": "session"
-},
-"gesaffelstein": {
-"genres": {
-"Techno hard": 3
+"Techno hard": 4,
+"Techno mikro": 1
 },
 "source": "session"
 },
 "irishfreedomfighters": {
 "genres": {
 "Techno hard": 1
+},
+"source": "session"
+},
+"assalm": {
+"genres": {
+"Techno dark": 1,
+"Techno downtempo": 1
+},
+"source": "session"
+},
+"diekrupps": {
+"genres": {
+"Techno EBM": 1
 },
 "source": "session"
 },
@@ -856,6 +929,12 @@
 },
 "source": "session"
 },
+"bonentendeur": {
+"genres": {
+"French touch 2.0": 17
+},
+"source": "session"
+},
 "charlieputh": {
 "genres": {
 "House": 1,
@@ -877,14 +956,31 @@
 },
 "kidfrancescoli": {
 "genres": {
+"French touch 2.0": 1
+},
+"source": "session"
+},
+"lovebirds": {
+"genres": {
+"House deep": 1
+},
+"source": "session"
+},
+"ikson": {
+"genres": {
 "House deep": 1
 },
 "source": "session"
 },
 "theavener": {
 "genres": {
-"House deep": 1,
-"Chanson FR": 1
+"French touch 2.0": 2
+},
+"source": "session"
+},
+"markhawkins": {
+"genres": {
+"House deep": 1
 },
 "source": "session"
 },
@@ -906,9 +1002,10 @@
 },
 "davidguetta": {
 "genres": {
-"House": 13,
+"House": 14,
 "EDM/Big room": 11,
 "Dance-Eurodance": 14,
+"Future rave": 11,
 "House tech": 4,
 "Reggae/Dancehall": 2,
 "Pop": 1,
@@ -1139,17 +1236,34 @@
 },
 "source": "session"
 },
+"boysnoize": {
+"genres": {
+"French touch": 4,
+"Techno acid": 1,
+"Techno EBM": 1
+},
+"source": "session"
+},
 "overwerk": {
 "genres": {
 "French touch": 1,
+"Future rave": 1,
 "House": 3,
+"EDM/Big room": 1
+},
+"source": "session"
+},
+"birdynamnam": {
+"genres": {
+"French touch": 4,
+"Techno acid": 1,
 "EDM/Big room": 1
 },
 "source": "session"
 },
 "djmehdi": {
 "genres": {
-"French touch": 1
+"French touch": 2
 },
 "source": "session"
 },
@@ -1172,9 +1286,15 @@
 },
 "source": "session"
 },
-"rickyretro": {
+"busyp": {
 "genres": {
 "French touch": 1
+},
+"source": "session"
+},
+"rickyretro": {
+"genres": {
+"Future rave": 1
 },
 "source": "session"
 },
@@ -1263,13 +1383,14 @@
 },
 "ummetozcan": {
 "genres": {
-"EDM/Big room": 2
+"EDM/Big room": 2,
+"Future rave": 1
 },
 "source": "session"
 },
 "arminvanbuuren": {
 "genres": {
-"Techno sympa": 1,
+"Future rave": 1,
 "Dance-Eurodance": 1,
 "Techno acid": 1
 },
@@ -1283,7 +1404,14 @@
 },
 "dimitrivegaslikemike": {
 "genres": {
-"EDM/Big room": 3
+"Future rave": 1,
+"EDM/Big room": 2
+},
+"source": "session"
+},
+"willsparks": {
+"genres": {
+"Future rave": 1
 },
 "source": "session"
 },
@@ -1311,15 +1439,39 @@
 },
 "source": "session"
 },
+"vipiemdj": {
+"genres": {
+"Future rave": 1
+},
+"source": "session"
+},
 "hypaton": {
 "genres": {
 "EDM/Big room": 2
 },
 "source": "session"
 },
+"dangellofrancis": {
+"genres": {
+"Future rave": 1
+},
+"source": "session"
+},
+"andrearicci": {
+"genres": {
+"Future rave": 1
+},
+"source": "session"
+},
 "naems": {
 "genres": {
 "EDM/Big room": 1
+},
+"source": "session"
+},
+"alexmueller": {
+"genres": {
+"Future rave": 1
 },
 "source": "session"
 },
@@ -1335,9 +1487,17 @@
 },
 "source": "session"
 },
+"martinikin": {
+"genres": {
+"Future rave": 1,
+"House deep": 1,
+"House tech": 1
+},
+"source": "session"
+},
 "oversky": {
 "genres": {
-"Techno dark": 1
+"Future rave": 2
 },
 "source": "session"
 },
@@ -1347,15 +1507,52 @@
 },
 "source": "session"
 },
+"svnjack": {
+"genres": {
+"Future rave": 1
+},
+"source": "session"
+},
+"morten": {
+"genres": {
+"Future rave": 2
+},
+"source": "session"
+},
 "laurentwolf": {
 "genres": {
 "House": 3
 },
 "source": "session"
 },
+"alexlndn": {
+"genres": {
+"Future rave": 1
+},
+"source": "session"
+},
 "blasterjaxx": {
 "genres": {
 "EDM/Big room": 2
+},
+"source": "session"
+},
+"genesi": {
+"genres": {
+"Future rave": 1,
+"House tech": 1
+},
+"source": "session"
+},
+"bvrnout": {
+"genres": {
+"Future rave": 1
+},
+"source": "session"
+},
+"seanjoseph": {
+"genres": {
+"Future rave": 1
 },
 "source": "session"
 },
@@ -1375,13 +1572,14 @@
 "hardwell": {
 "genres": {
 "EDM/Big room": 3,
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
 "acraze": {
 "genres": {
-"House": 4
+"Future rave": 1,
+"House": 3
 },
 "source": "session"
 },
@@ -1397,6 +1595,15 @@
 },
 "source": "session"
 },
+"avicii": {
+"genres": {
+"Future rave": 1,
+"House": 1,
+"Dance-Eurodance": 3,
+"EDM/Big room": 3
+},
+"source": "session"
+},
 "pieropirupa": {
 "genres": {
 "House tech": 1
@@ -1409,21 +1616,39 @@
 },
 "source": "session"
 },
+"kream": {
+"genres": {
+"Future rave": 1
+},
+"source": "session"
+},
 "marianabo": {
 "genres": {
 "EDM/Big room": 1
 },
 "source": "session"
 },
+"patrickhernandez": {
+"genres": {
+"Disco/Funk/Soul": 1
+},
+"source": "session"
+},
 "cerrone": {
 "genres": {
-"Disco/Funk/Soul": 3
+"Disco/Funk/Soul": 4
 },
 "source": "session"
 },
 "giorgiomoroder": {
 "genres": {
 "Disco/Funk/Soul": 2
+},
+"source": "session"
+},
+"donnasummer": {
+"genres": {
+"Disco/Funk/Soul": 3
 },
 "source": "session"
 },
@@ -1480,13 +1705,6 @@
 },
 "source": "session"
 },
-"martinikin": {
-"genres": {
-"House deep": 1,
-"House tech": 1
-},
-"source": "session"
-},
 "ayybo": {
 "genres": {
 "House deep": 3,
@@ -1528,7 +1746,7 @@
 },
 "trace": {
 "genres": {
-"House deep": 3
+"House deep": 4
 },
 "source": "session"
 },
@@ -1640,7 +1858,7 @@
 "juniorjack": {
 "genres": {
 "House disco": 1,
-"House": 1
+"House": 2
 },
 "source": "session"
 },
@@ -1832,7 +2050,7 @@
 },
 "trinix": {
 "genres": {
-"House deep": 1
+"French touch 2.0": 1
 },
 "source": "session"
 },
@@ -1924,8 +2142,7 @@
 },
 "thylacine": {
 "genres": {
-"House": 1,
-"House deep": 3
+"French touch 2.0": 4
 },
 "source": "session"
 },
@@ -1950,13 +2167,13 @@
 "aparde": {
 "genres": {
 "House deep": 1,
-"Techno organic": 1
+"Techno downtempo": 1
 },
 "source": "session"
 },
 "arnodd": {
 "genres": {
-"Techno progressive": 1
+"Techno chill": 1
 },
 "source": "session"
 },
@@ -2131,7 +2348,7 @@
 "hvob": {
 "genres": {
 "House": 1,
-"Techno organic": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -2189,12 +2406,6 @@
 "masove": {
 "genres": {
 "Dance-Eurodance": 1
-},
-"source": "session"
-},
-"genesi": {
-"genres": {
-"House tech": 1
 },
 "source": "session"
 },
@@ -2425,8 +2636,7 @@
 },
 "jain": {
 "genres": {
-"Pop": 2,
-"House": 1
+"Pop": 3
 },
 "source": "session"
 },
@@ -2910,13 +3120,13 @@
 "akkide": {
 "genres": {
 "Techno acid": 2,
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
 "afterlife": {
 "genres": {
-"Techno progressive": 1
+"Techno chill": 1
 },
 "source": "session"
 },
@@ -2946,7 +3156,7 @@
 },
 "attlas": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -2976,13 +3186,13 @@
 },
 "acti": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
 "adambeyer": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -3150,7 +3360,7 @@
 },
 "andromeda": {
 "genres": {
-"Techno progressive": 1
+"Techno chill": 1
 },
 "source": "session"
 },
@@ -3206,6 +3416,12 @@
 "anuelaa": {
 "genres": {
 "Latino/Reggaeton": 1
+},
+"source": "session"
+},
+"anyma": {
+"genres": {
+"Future rave": 1
 },
 "source": "session"
 },
@@ -3288,14 +3504,6 @@
 },
 "source": "session"
 },
-"avicii": {
-"genres": {
-"House": 1,
-"Dance-Eurodance": 3,
-"EDM/Big room": 3
-},
-"source": "session"
-},
 "avrillavigne": {
 "genres": {
 "Rock": 1
@@ -3347,7 +3555,7 @@
 },
 "baugruppe90": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -3482,7 +3690,7 @@
 },
 "bellaire": {
 "genres": {
-"House disco": 1
+"French touch 2.0": 1
 },
 "source": "session"
 },
@@ -3578,13 +3786,6 @@
 },
 "source": "session"
 },
-"birdynamnam": {
-"genres": {
-"Techno acid": 1,
-"EDM/Big room": 1
-},
-"source": "session"
-},
 "bizarrap": {
 "genres": {
 "Latino/Reggaeton": 1
@@ -3593,7 +3794,7 @@
 },
 "bjarki": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -3612,7 +3813,7 @@
 },
 "blackroserec": {
 "genres": {
-"Techno melodic": 1
+"Techno chill": 1
 },
 "source": "session"
 },
@@ -3732,6 +3933,12 @@
 },
 "source": "session"
 },
+"borisbrejcha": {
+"genres": {
+"Techno mikro": 1
+},
+"source": "session"
+},
 "bossta": {
 "genres": {
 "Techno acid": 1
@@ -3747,13 +3954,6 @@
 "boston168": {
 "genres": {
 "Techno acid": 1
-},
-"source": "session"
-},
-"boysnoize": {
-"genres": {
-"Techno acid": 1,
-"Techno EBM": 1
 },
 "source": "session"
 },
@@ -3791,6 +3991,12 @@
 "brucespringsteen": {
 "genres": {
 "Rock": 2
+},
+"source": "session"
+},
+"brutalismus3000": {
+"genres": {
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -4059,12 +4265,6 @@
 },
 "source": "session"
 },
-"ciuboyz": {
-"genres": {
-"Techno hard": 1
-},
-"source": "session"
-},
 "claasherrmann": {
 "genres": {
 "Techno hard": 1
@@ -4245,13 +4445,13 @@
 },
 "dnox": {
 "genres": {
-"Techno melodic": 1
+"Techno chill": 1
 },
 "source": "session"
 },
 "davethedrummer": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -4359,7 +4559,7 @@
 },
 "drp": {
 "genres": {
-"Techno organic": 1
+"Techno chill": 1
 },
 "source": "session"
 },
@@ -4396,6 +4596,12 @@
 "dabs": {
 "genres": {
 "Rap/Hip-hop": 1
+},
+"source": "session"
+},
+"dadalife": {
+"genres": {
+"Future rave": 1
 },
 "source": "session"
 },
@@ -4450,13 +4656,13 @@
 },
 "darksky": {
 "genres": {
-"Techno organic": 1
+"Techno chill": 1
 },
 "source": "session"
 },
 "darude": {
 "genres": {
-"Techno fast": 1
+"Dance-Eurodance": 1
 },
 "source": "session"
 },
@@ -4469,6 +4675,12 @@
 "dauwd": {
 "genres": {
 "House deep": 1
+},
+"source": "session"
+},
+"daveclarke": {
+"genres": {
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -4507,6 +4719,12 @@
 "delarose": {
 "genres": {
 "Latino/Reggaeton": 1
+},
+"source": "session"
+},
+"destaat": {
+"genres": {
+"Rock": 1
 },
 "source": "session"
 },
@@ -4612,6 +4830,7 @@
 },
 "digitalism": {
 "genres": {
+"French touch": 2,
 "Techno EBM": 1
 },
 "source": "session"
@@ -4724,12 +4943,6 @@
 },
 "source": "session"
 },
-"donnasummer": {
-"genres": {
-"Pop": 2
-},
-"source": "session"
-},
 "donnyhathaway": {
 "genres": {
 "Disco/Funk/Soul": 1
@@ -4750,7 +4963,8 @@
 },
 "doubledare": {
 "genres": {
-"Techno hard": 1
+"Techno hard": 1,
+"Techno fast": 1
 },
 "source": "session"
 },
@@ -4888,7 +5102,7 @@
 },
 "egbertvandergugten": {
 "genres": {
-"Techno organic": 1
+"Techno groove": 1
 },
 "source": "session"
 },
@@ -5101,13 +5315,13 @@
 },
 "fjaak": {
 "genres": {
-"Techno acid": 2
+"Techno acid": 3
 },
 "source": "session"
 },
 "fkj": {
 "genres": {
-"Disco/Funk/Soul": 1
+"French touch 2.0": 1
 },
 "source": "session"
 },
@@ -5119,7 +5333,7 @@
 },
 "fabrication": {
 "genres": {
-"Techno organic": 1
+"Techno groove": 1
 },
 "source": "session"
 },
@@ -5264,7 +5478,7 @@
 },
 "flymeon": {
 "genres": {
-"Techno hard": 5
+"Techno hard": 7
 },
 "source": "session"
 },
@@ -5317,12 +5531,6 @@
 },
 "source": "session"
 },
-"frankstrazzeri": {
-"genres": {
-"Techno organic": 1
-},
-"source": "session"
-},
 "frankiegoestohollywood": {
 "genres": {
 "Rock": 1
@@ -5362,12 +5570,6 @@
 "freddiemercury": {
 "genres": {
 "House": 1
-},
-"source": "session"
-},
-"freedomfighters": {
-"genres": {
-"Techno berlin": 1
 },
 "source": "session"
 },
@@ -5908,6 +6110,12 @@
 },
 "source": "session"
 },
+"infectedmushrooms": {
+"genres": {
+"Techno acid": 1
+},
+"source": "session"
+},
 "irenecara": {
 "genres": {
 "Pop": 1
@@ -6203,7 +6411,8 @@
 },
 "jonhopkins": {
 "genres": {
-"Techno organic": 2,
+"Techno chill": 1,
+"Techno progressive": 1,
 "House deep": 2
 },
 "source": "session"
@@ -6247,7 +6456,7 @@
 },
 "joyhauser": {
 "genres": {
-"Techno acid": 2
+"Techno acid": 3
 },
 "source": "session"
 },
@@ -6576,6 +6785,7 @@
 },
 "limperatrice": {
 "genres": {
+"French touch 2.0": 1,
 "French touch": 2
 },
 "source": "session"
@@ -7077,7 +7287,7 @@
 },
 "motvs": {
 "genres": {
-"Techno acid": 3
+"Techno acid": 4
 },
 "source": "session"
 },
@@ -7108,7 +7318,7 @@
 },
 "macdeclos": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -7190,6 +7400,12 @@
 "malvmoo": {
 "genres": {
 "Disco/Funk/Soul": 1
+},
+"source": "session"
+},
+"malasangre": {
+"genres": {
+"Techno EBM": 1
 },
 "source": "session"
 },
@@ -7342,7 +7558,7 @@
 },
 "matteovitanza": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -7654,6 +7870,12 @@
 "genres": {
 "EDM/Big room": 1,
 "House disco": 1
+},
+"source": "session"
+},
+"myd": {
+"genres": {
+"French touch 2.0": 1
 },
 "source": "session"
 },
@@ -8126,7 +8348,7 @@
 },
 "pamparecordsofficial": {
 "genres": {
-"Techno organic": 1
+"Techno chill": 1
 },
 "source": "session"
 },
@@ -8205,9 +8427,15 @@
 },
 "source": "session"
 },
+"patrickcowley": {
+"genres": {
+"Disco/Funk/Soul": 1
+},
+"source": "session"
+},
 "patrickscuro": {
 "genres": {
-"Techno berlin": 1,
+"Techno dark": 1,
 "Techno acid": 1
 },
 "source": "session"
@@ -8334,8 +8562,7 @@
 },
 "polopan": {
 "genres": {
-"House deep": 1,
-"House": 1
+"French touch 2.0": 2
 },
 "source": "session"
 },
@@ -8549,7 +8776,7 @@
 },
 "rebuke": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -8585,7 +8812,7 @@
 },
 "reinierzonneveld": {
 "genres": {
-"Techno berlin": 1,
+"Techno dark": 1,
 "Techno acid": 1
 },
 "source": "session"
@@ -8739,7 +8966,7 @@
 },
 "rone": {
 "genres": {
-"Techno downtempo": 1
+"Techno downtempo": 3
 },
 "source": "session"
 },
@@ -8781,7 +9008,7 @@
 },
 "rrose": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -8835,12 +9062,13 @@
 },
 "shxcxchcxsh": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
 "sierra": {
 "genres": {
+"Techno dark": 2,
 "Techno acid": 1
 },
 "source": "session"
@@ -8961,7 +9189,7 @@
 },
 "salutcestcool": {
 "genres": {
-"Techno sympa": 1
+"Techno sympa": 3
 },
 "source": "session"
 },
@@ -8973,7 +9201,8 @@
 },
 "samwolfe": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1,
+"Techno hard": 2
 },
 "source": "session"
 },
@@ -9302,7 +9531,7 @@
 },
 "space92": {
 "genres": {
-"Techno berlin": 1,
+"Techno dark": 1,
 "Techno acid": 1
 },
 "source": "session"
@@ -9382,7 +9611,7 @@
 },
 "suntree": {
 "genres": {
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -9439,7 +9668,7 @@
 },
 "t78": {
 "genres": {
-"Techno acid": 2
+"Techno acid": 4
 },
 "source": "session"
 },
@@ -9641,7 +9870,8 @@
 },
 "thechemicalbrothers": {
 "genres": {
-"Dance-Eurodance": 2
+"Dance-Eurodance": 2,
+"Techno groove": 1
 },
 "source": "session"
 },
@@ -9859,7 +10089,7 @@
 "thomasschumacher": {
 "genres": {
 "Techno acid": 3,
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -10013,7 +10243,7 @@
 "umek": {
 "genres": {
 "Techno acid": 1,
-"Techno berlin": 1
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -10033,6 +10263,12 @@
 "underworld": {
 "genres": {
 "Techno EBM": 1
+},
+"source": "session"
+},
+"unholy": {
+"genres": {
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -10161,12 +10397,6 @@
 "vitaa": {
 "genres": {
 "Rap/Hip-hop": 1
-},
-"source": "session"
-},
-"vitalic": {
-"genres": {
-"Techno acid": 1
 },
 "source": "session"
 },
@@ -10548,6 +10778,12 @@
 },
 "source": "session"
 },
+"sdsm": {
+"genres": {
+"French touch": 8
+},
+"source": "session"
+},
 "southstar": {
 "genres": {
 "Pop": 1
@@ -10904,7 +11140,7 @@
 },
 "agaragar": {
 "genres": {
-"Pop": 1
+"French touch 2.0": 1
 },
 "source": "session"
 },

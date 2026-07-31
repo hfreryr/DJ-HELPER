@@ -1614,7 +1614,7 @@ def rv_parse_filename(fname):
 _ENR_BP_MAP = [
     ("hard techno", "Techno hard"), ("hardstyle", "Techno hard"),
     ("hard dance", "Techno hard"), ("hardcore", "Techno hard"),
-    ("raw / deep / hypnotic", "Techno berlin"),
+    ("raw / deep / hypnotic", "Techno dark"),
     ("peak time / driving", "Techno"),
     ("melodic house & techno", "Techno"),
     ("tech house", "House tech"), ("bass house", "House tech"),
@@ -1636,7 +1636,7 @@ _ENR_BP_MAP = [
 _ENR_DC_MAP = [
     ("acid techno", "Techno acid"), ("hard techno", "Techno hard"),
     ("hardstyle", "Techno hard"), ("hardcore", "Techno hard"),
-    ("minimal techno", "Techno berlin"), ("minimal", "Techno berlin"),
+    ("minimal techno", "Techno mikro"), ("minimal", "Techno mikro"),
     ("acid house", "House"), ("deep house", "House deep"),
     ("tech house", "House tech"), ("filter house", "French touch"),
     ("french house", "French touch"), ("disco house", "House disco"),
@@ -4337,18 +4337,16 @@ class Core:
 
     _REVIEW_GENRES = ["Pop", "Rock", "Chanson FR", "Disco/Funk/Soul",
                       "Dance-Eurodance", "House", "House deep", "House tech",
-                      "House disco", "French touch", "EDM/Big room",
-                      "Techno", "Techno EBM", "Techno acid",
-                      "Techno berlin", "Techno breizh",
+                      "House disco", "French touch", "French touch 2.0",
+                      "EDM/Big room", "Future rave",
+                      "Techno", "Techno EBM", "Techno acid", "Techno breizh",
                       "Techno chill", "Techno dark", "Techno downtempo",
                       "Techno fast", "Techno groove", "Techno hard",
-                      "Techno melodic",
-                      "Techno mikro", "Techno organic", "Techno progressive",
-                      "Techno sympa",
+                      "Techno mikro", "Techno progressive", "Techno sympa",
                       "Rap/Hip-hop", "Latino/Reggaeton",
                       "Reggae/Dancehall", "Autre"]
-    _REVIEW_TECHNO_CHOICES = ["Techno acid", "Techno hard", "Techno berlin",
-                              "Techno breizh", "Techno groove", "Techno fast"]
+    _REVIEW_TECHNO_CHOICES = ["Techno acid", "Techno hard", "Techno dark",
+                              "Techno groove", "Techno breizh", "Techno fast"]
 
     def _review_audio_server(self):
         """Démarre (une fois) le serveur audio local ; renvoie 'http://127.0.0.1:port'."""
