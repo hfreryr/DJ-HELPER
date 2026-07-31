@@ -1609,9 +1609,14 @@ function rvRenderItem(){
     box.appendChild(b);
   });
   const sel = $('rv-genre-select');
-  sel.innerHTML = '<option value="">Autre genre…</option>' +
+  sel.innerHTML = '<option value="">Genre…</option>' +
     rvGenres.map(g => '<option>' + g + '</option>').join('');
-  sel.value = '';
+  if (it.genre && rvGenres.indexOf(it.genre) < 0){
+    const o = document.createElement('option');
+    o.textContent = it.genre;
+    sel.appendChild(o);
+  }
+  sel.value = it.genre || '';
   $('rv-year-input').value = '';
   $('rv-year-input').placeholder = it.year ? String(it.year) : 'Année';
   rvMark = it.mark || '';
@@ -1774,7 +1779,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.5';
+const APP_VERSION = 'v1.5.6';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
