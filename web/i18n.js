@@ -364,6 +364,8 @@ Object.assign(I18N_EN, {
   "Analyse impossible.": "Could not analyse.",
   "Valider": "Confirm",
   "✓ Rien à corriger": "✓ Nothing to fix",
+  "Garder l'actuel": "Keep current",
+  "✓ Titre nettoyé proposé — il sera appliqué en même temps que ta validation": "✓ Cleaned title suggested — it will be applied along with your confirmation",
   "Choisis un genre ou saisis une année avant de valider.": "Pick a genre or type a year before confirming.",
   "GENRE MANQUANT": "MISSING GENRE",
   "ANNÉE MANQUANTE": "MISSING YEAR",

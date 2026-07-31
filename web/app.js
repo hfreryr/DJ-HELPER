@@ -1573,18 +1573,27 @@ function rvRenderItem(){
     $('rv-missing').style.display = 'block';
   }
   const idfix = $('rv-idfix');
-  if (idfix)
-  if (it.priority === 'ARTISTE/TITRE MANQUANT' || it.priority === 'TITRE À NETTOYER'){
+  if (idfix){
+  const hasClean = it.title_prop && it.title_prop !== it.title;
+  if (it.priority === 'ARTISTE/TITRE MANQUANT'){
     idfix.style.display = '';
+    $('rv-keep-title').style.display = 'none';
     $('rv-artist-input').value = it.artist_prop || it.artist || '';
     $('rv-title-input').value = it.title_prop || it.title || '';
+    $('rv-idfix-lab').textContent = '✓ Déduit du nom de fichier — corrige, ajoute genre/année si tu les connais, puis valide';
+  } else if (hasClean){
+    idfix.style.display = '';
+    $('rv-keep-title').style.display = '';
+    $('rv-artist-input').value = it.artist || '';
+    $('rv-title-input').value = it.title_prop;
     $('rv-idfix-lab').textContent = it.priority === 'TITRE À NETTOYER'
       ? '✓ Titre nettoyé proposé — corrige si besoin puis valide'
-      : '✓ Déduit du nom de fichier — corrige, ajoute genre/année si tu les connais, puis valide';
+      : '✓ Titre nettoyé proposé — il sera appliqué en même temps que ta validation';
   } else {
     idfix.style.display = 'none';
     $('rv-artist-input').value = '';
     $('rv-title-input').value = '';
+  }
   }
   const box = $('rv-choices');
   box.innerHTML = '';
@@ -1704,6 +1713,10 @@ $('rv-online-stop').addEventListener('click', async () => {
 $('rv-ok').addEventListener('click', () => rvApply({}));
 $('rv-skip').addEventListener('click', rvSkip);
 $('rv-approve').addEventListener('click', rvApprove);
+$('rv-keep-title').addEventListener('click', () => {
+  const it = rvCurrent();
+  if (it) $('rv-title-input').value = it.title || '';
+});
 // Écouteurs branchés/débranchés : WebView2 fige la sortie audio du lecteur
 // sur le périphérique actif au chargement. On recharge le flux au changement
 // de périphérique, en préservant la position et l'état de lecture.
@@ -1757,7 +1770,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.0';
+const APP_VERSION = 'v1.5.1';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){

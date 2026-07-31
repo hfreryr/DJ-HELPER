@@ -4492,18 +4492,21 @@ class Core:
                 fa, ft = rv_parse_filename(loc.get("FILE") or "")
                 artist_prop = fa or artist
                 title_prop = ft or title
-            elif not genre:
-                prio = "GENRE MANQUANT"
-            elif genre == "Techno":
-                prio = "SOUS-GENRE TECHNO"
-                choices = list(self._REVIEW_TECHNO_CHOICES)
-            elif not year:
-                prio = "ANNÉE MANQUANTE"
             else:
+                # le nettoyage de titre est proposé sur TOUS les items :
+                # il s'applique en même temps que la validation principale
                 clean = rv_clean_title_proposal(title, artist)
                 if clean:
-                    prio = "TITRE À NETTOYER"
                     title_prop = clean
+                if not genre:
+                    prio = "GENRE MANQUANT"
+                elif genre == "Techno":
+                    prio = "SOUS-GENRE TECHNO"
+                    choices = list(self._REVIEW_TECHNO_CHOICES)
+                elif not year:
+                    prio = "ANNÉE MANQUANTE"
+                elif title_prop:
+                    prio = "TITRE À NETTOYER"
 
             fi = props.pop(key, None)
             if fi is not None:
