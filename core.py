@@ -4289,12 +4289,20 @@ class Core:
 
     _REVIEW_GENRES = ["Pop", "Rock", "Chanson FR", "Disco/Funk/Soul",
                       "Dance-Eurodance", "House", "House deep", "House tech",
-                      "House disco", "French touch", "EDM/Big room", "Techno",
-                      "Techno acid", "Techno hard", "Techno berlin",
-                      "Techno breizh", "Rap/Hip-hop", "Latino/Reggaeton",
+                      "House disco", "French touch", "EDM/Big room",
+                      "Techno", "Techno EBM", "Techno acid",
+                      "Techno acid downtempo", "Techno acid hard",
+                      "Techno acid medium", "Techno acid selecta",
+                      "Techno acid trippy", "Techno berlin", "Techno breizh",
+                      "Techno chill", "Techno dark", "Techno downtempo",
+                      "Techno fast", "Techno groove", "Techno hard",
+                      "Techno hardtech", "Techno medium", "Techno melodic",
+                      "Techno mikro", "Techno organic", "Techno progressive",
+                      "Techno sympa", "Techno turbo hard",
+                      "Rap/Hip-hop", "Latino/Reggaeton",
                       "Reggae/Dancehall", "Autre"]
-    _REVIEW_TECHNO_CHOICES = ["Techno hard", "Techno acid", "Techno berlin",
-                              "Techno breizh", "Techno", "Autre"]
+    _REVIEW_TECHNO_CHOICES = ["Techno acid", "Techno hard", "Techno berlin",
+                              "Techno medium", "Techno groove", "Techno fast"]
 
     def _review_audio_server(self):
         """Démarre (une fois) le serveur audio local ; renvoie 'http://127.0.0.1:port'."""
