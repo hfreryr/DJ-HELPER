@@ -899,6 +899,12 @@
 },
 "source": "session"
 },
+"patricksebastien": {
+"genres": {
+"Humour": 6
+},
+"source": "session"
+},
 "boris": {
 "genres": {
 "Chanson FR": 1
@@ -911,6 +917,12 @@
 },
 "source": "session"
 },
+"campingorchestra": {
+"genres": {
+"Humour": 1
+},
+"source": "session"
+},
 "chrisanderson": {
 "genres": {
 "Dance-Eurodance": 1
@@ -920,6 +932,30 @@
 "madagascar5": {
 "genres": {
 "Dance-Eurodance": 1
+},
+"source": "session"
+},
+"choeursdelaviron": {
+"genres": {
+"Humour": 1
+},
+"source": "session"
+},
+"dariovonslutty": {
+"genres": {
+"Humour": 1
+},
+"source": "session"
+},
+"leskekeboys": {
+"genres": {
+"Humour": 1
+},
+"source": "session"
+},
+"franckyvincent": {
+"genres": {
+"Humour": 2
 },
 "source": "session"
 },
@@ -4901,6 +4937,12 @@
 },
 "source": "session"
 },
+"dmitrishostakovich": {
+"genres": {
+"Classique": 1
+},
+"source": "session"
+},
 "doctorscat": {
 "genres": {
 "Disco/Funk/Soul": 1
@@ -5187,7 +5229,7 @@
 "elvispresley": {
 "genres": {
 "Pop": 1,
-"Rock": 1
+"Rock": 2
 },
 "source": "session"
 },
@@ -5519,12 +5561,6 @@
 },
 "source": "session"
 },
-"franckyvincent": {
-"genres": {
-"Latino/Reggaeton": 1
-},
-"source": "session"
-},
 "franglish": {
 "genres": {
 "Rap/Hip-hop": 2
@@ -5832,6 +5868,12 @@
 "gerardblanc": {
 "genres": {
 "Chanson FR": 1
+},
+"source": "session"
+},
+"gunther": {
+"genres": {
+"Humour": 1
 },
 "source": "session"
 },
@@ -6182,6 +6224,12 @@
 },
 "source": "session"
 },
+"jacquesoffenbach": {
+"genres": {
+"Classique": 1
+},
+"source": "session"
+},
 "jamelia": {
 "genres": {
 "Disco/Funk/Soul": 1
@@ -6362,6 +6410,12 @@
 "genres": {
 "Pop": 1,
 "Chanson FR": 1
+},
+"source": "session"
+},
+"joehisaishi": {
+"genres": {
+"Classique": 1
 },
 "source": "session"
 },
@@ -7550,6 +7604,12 @@
 },
 "source": "session"
 },
+"mattlange": {
+"genres": {
+"Techno chill": 2
+},
+"source": "session"
+},
 "mattei": {
 "genres": {
 "Latino/Reggaeton": 1
@@ -7912,6 +7972,12 @@
 "menelik": {
 "genres": {
 "Chanson FR": 1
+},
+"source": "session"
+},
+"nto": {
+"genres": {
+"Techno chill": 3
 },
 "source": "session"
 },
@@ -8621,6 +8687,12 @@
 },
 "source": "session"
 },
+"pyotrilyichtchaikovsky": {
+"genres": {
+"Classique": 2
+},
+"source": "session"
+},
 "pzk": {
 "genres": {
 "Dance-Eurodance": 1,
@@ -8644,6 +8716,12 @@
 "quevedo": {
 "genres": {
 "Latino/Reggaeton": 1
+},
+"source": "session"
+},
+"quincyjones": {
+"genres": {
+"Disco/Funk/Soul": 1
 },
 "source": "session"
 },
@@ -8759,6 +8837,12 @@
 "raxeller": {
 "genres": {
 "Techno fast": 1
+},
+"source": "session"
+},
+"raycharles": {
+"genres": {
+"Disco/Funk/Soul": 1
 },
 "source": "session"
 },
@@ -9666,6 +9750,12 @@
 },
 "source": "session"
 },
+"sebastienpatochetopic": {
+"genres": {
+"Humour": 1
+},
+"source": "session"
+},
 "t78": {
 "genres": {
 "Techno acid": 4
@@ -9841,6 +9931,12 @@
 "theblowmonkeys": {
 "genres": {
 "Pop": 1
+},
+"source": "session"
+},
+"thebluesbrothers": {
+"genres": {
+"Disco/Funk/Soul": 1
 },
 "source": "session"
 },

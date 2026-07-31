@@ -4335,7 +4335,8 @@ class Core:
         except Exception:
             pass
 
-    _REVIEW_GENRES = ["Pop", "Rock", "Chanson FR", "Disco/Funk/Soul",
+    _REVIEW_GENRES = ["Pop", "Rock", "Chanson FR", "Classique", "Humour",
+                      "Disco/Funk/Soul",
                       "Dance-Eurodance", "House", "House deep", "House tech",
                       "House disco", "French touch", "French touch 2.0",
                       "EDM/Big room", "Future rave",
