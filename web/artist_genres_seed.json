@@ -90,6 +90,7 @@
 },
 "vtss": {
 "genres": {
+"Techno acid": 1,
 "Techno hard": 3
 },
 "source": "session"
@@ -392,7 +393,7 @@
 },
 "cassieraptor": {
 "genres": {
-"Techno hard": 3
+"Techno hard": 4
 },
 "source": "session"
 },
@@ -801,7 +802,7 @@
 },
 "source": "session"
 },
-"pedrogoya": {
+"jeffmills": {
 "genres": {
 "Techno mikro": 1
 },
@@ -1331,6 +1332,12 @@
 "dvbbs": {
 "genres": {
 "EDM/Big room": 2
+},
+"source": "session"
+},
+"oversky": {
+"genres": {
+"Techno dark": 1
 },
 "source": "session"
 },
@@ -2907,7 +2914,7 @@
 },
 "source": "session"
 },
-"al050": {
+"afterlife": {
 "genres": {
 "Techno progressive": 1
 },
@@ -3132,6 +3139,12 @@
 "andersonnoise": {
 "genres": {
 "Techno acid": 1
+},
+"source": "session"
+},
+"andressconde": {
+"genres": {
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -3807,8 +3820,7 @@
 },
 "carv": {
 "genres": {
-"Techno hardtech": 4,
-"Techno hard": 1
+"Techno hard": 5
 },
 "source": "session"
 },
@@ -4365,7 +4377,7 @@
 },
 "dxpe": {
 "genres": {
-"Techno hardtech": 1
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -5096,6 +5108,12 @@
 "fkj": {
 "genres": {
 "Disco/Funk/Soul": 1
+},
+"source": "session"
+},
+"flkn": {
+"genres": {
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -6141,7 +6159,7 @@
 },
 "joeyrisdon": {
 "genres": {
-"Techno hardtech": 1,
+"Techno hard": 1,
 "Techno acid": 1
 },
 "source": "session"
@@ -6355,7 +6373,7 @@
 },
 "karashnikov": {
 "genres": {
-"Techno hardtech": 1
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -6883,6 +6901,12 @@
 },
 "source": "session"
 },
+"lowriders": {
+"genres": {
+"Techno hard": 1
+},
+"source": "session"
+},
 "lulu": {
 "genres": {
 "Rap/Hip-hop": 1
@@ -7072,7 +7096,7 @@
 },
 "mxgn": {
 "genres": {
-"Techno hardtech": 1
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -7926,7 +7950,7 @@
 },
 "omaks": {
 "genres": {
-"Techno hardtech": 3
+"Techno hard": 3
 },
 "source": "session"
 },
@@ -8703,7 +8727,7 @@
 },
 "romangehrecke": {
 "genres": {
-"Techno hardtech": 1
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -9304,7 +9328,7 @@
 "stanchrist": {
 "genres": {
 "Techno acid": 2,
-"Techno hardtech": 1
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -9329,6 +9353,12 @@
 "stereosoulz": {
 "genres": {
 "House": 1
+},
+"source": "session"
+},
+"stretch": {
+"genres": {
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -10093,7 +10123,7 @@
 },
 "victornagaev": {
 "genres": {
-"Techno hardtech": 1
+"Techno hard": 1
 },
 "source": "session"
 },
@@ -10155,6 +10185,12 @@
 "vladimircauchemar": {
 "genres": {
 "Rap/Hip-hop": 2
+},
+"source": "session"
+},
+"vorteks": {
+"genres": {
+"Techno acid": 1
 },
 "source": "session"
 },
@@ -10397,7 +10433,7 @@
 },
 "zeuz": {
 "genres": {
-"Techno hardtech": 1
+"Techno hard": 1
 },
 "source": "session"
 },

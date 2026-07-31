@@ -4342,7 +4342,7 @@ class Core:
                       "Techno berlin", "Techno breizh",
                       "Techno chill", "Techno dark", "Techno downtempo",
                       "Techno fast", "Techno groove", "Techno hard",
-                      "Techno hardtech", "Techno melodic",
+                      "Techno melodic",
                       "Techno mikro", "Techno organic", "Techno progressive",
                       "Techno sympa",
                       "Rap/Hip-hop", "Latino/Reggaeton",
