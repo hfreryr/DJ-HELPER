@@ -1666,6 +1666,59 @@ def _enr_map_genre(raw, table):
     return None
 
 
+def dir_entry_probe(root):
+    """Sonde les entrées de répertoire d'un dossier : os.listdir renvoie un nom,
+    mais os.stat échoue dessus (ni tel quel, ni en NFC, ni en NFD) => entrée de
+    répertoire corrompue. Un scan qui parcourt le dossier dans l'ordre physique
+    peut s'y arrêter et rendre invisible TOUT ce qui suit (cas vécu : import
+    Traktor stoppé, 1140 fichiers jamais importés).
+
+    Ne trie pas : l'ordre physique est l'information utile. Renvoie la position
+    de chaque entrée fautive et le nombre d'entrées situées derrière elle.
+    """
+    import errno as _errno
+    import unicodedata as _ud
+    try:
+        names = os.listdir(root)
+    except OSError as e:
+        return {"ok": False, "error": "Lecture du dossier impossible : %s" % e}
+    bad = []
+    for i, name in enumerate(names):
+        p = os.path.join(root, name)
+        err = None
+        for form in (name,
+                     _ud.normalize("NFC", name),
+                     _ud.normalize("NFD", name)):
+            try:
+                os.stat(os.path.join(root, form))
+                err = None
+                break
+            except OSError as e:
+                err = e
+        if err is None:
+            continue
+        # lstat OK + stat KO = lien symbolique brisé (pas une corruption FS)
+        kind = "unreadable"
+        try:
+            os.lstat(p)
+            kind = "broken_link"
+        except OSError:
+            pass
+        bad.append({
+            "name": name,
+            "index": i,
+            "after": len(names) - i - 1,
+            "kind": kind,
+            "errno": _errno.errorcode.get(getattr(err, "errno", 0), ""),
+            "error": str(err)[:160],
+            "before_name": names[i - 1] if i else "",
+            "after_name": names[i + 1] if i + 1 < len(names) else "",
+        })
+    return {"ok": True, "root": root, "total": len(names), "bad": bad,
+            "n_bad": len(bad),
+            "worst_after": max([b["after"] for b in bad], default=0)}
+
+
 def enr_genre_beatport(artist, title):
     """Genre Beatport mappé ; renvoie (genre_app, genre_brut) ou (None, None)."""
     a = _enr_primary_artist(artist)
@@ -2235,6 +2288,14 @@ class Core:
             "duration": tags["duration"], "duration_h": fmt_duration(tags["duration"]),
             "size": size, "size_h": human_size(size),
         }
+
+    def check_dir_entries(self):
+        """Garde-fou 1 : entrées de répertoire illisibles dans le Music Folder."""
+        d = self.music_folder
+        if not (d and os.path.isdir(d)):
+            return {"ok": False, "error": "Dossier introuvable — choisis ton "
+                                          "dossier de musique sur l'accueil."}
+        return dir_entry_probe(d)
 
     def _list_audio_paths(self):
         d = self.music_folder

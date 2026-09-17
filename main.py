@@ -144,6 +144,9 @@ class Api:
     def reveal_file(self, path):
         return self.core.reveal_file(path)
 
+    def check_dir_entries(self):
+        return self.core.check_dir_entries()
+
     def home_stats(self):
         return self.core.home_stats()
 
@@ -334,18 +337,12 @@ def main():
             return True
         if getattr(api.core, "_m3u_running", False):
             return False   # génération en cours : ne pas fermer
-        try:
-            # Windows : le pont JS<->Python n'est pas fiable après une fermeture
-            # annulée (régénération qui gèle). On ferme directement : le contrôle
-            # au DÉMARRAGE prend le relais et proposera la régénération.
-            if sys.platform.startswith("win"):
-                return True
-            if api.core.vault_check().get("changed"):
-                # ouvrir le dialogue dans l'UI et annuler cette fermeture-ci
-                api._window.evaluate_js("showVaultPrompt()")
-                return False
-        except Exception:
-            pass
+        # Le handler « closing » est appelé SUR LE THREAD UI. Y appeler
+        # evaluate_js() attend une réponse du moteur web, qui ne peut être
+        # rendue que par ce même thread : interblocage (roue arc-en-ciel sur
+        # macOS, gel sur Windows) — et seulement quand le coffre a changé,
+        # d'où « une fois sur deux ». On ferme donc toujours directement : le
+        # contrôle au DÉMARRAGE (app.js) proposera la régénération.
         return True
 
     window = webview.create_window(

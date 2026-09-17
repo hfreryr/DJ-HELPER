@@ -398,12 +398,48 @@ function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&'
 // ---------- intégrité ----------
 let integStop = false;
 
+// Garde-fou : entrées de répertoire illisibles. Une entrée que le système
+// liste mais ne peut pas lire arrête net un scan qui parcourt le dossier dans
+// l'ordre physique (import Traktor) : tout ce qui suit devient invisible.
+async function checkDirEntries(){
+  const box = $('integ-entries');
+  if (!box) return;
+  box.innerHTML = '';
+  let r = null;
+  try { r = await API.check_dir_entries(); } catch (e){ r = null; }
+  if (!r || !r.ok) return;
+  if (!r.n_bad){
+    box.innerHTML = '<div class="entry-ok">✓ Entrées de répertoire saines ('
+      + r.total + ' lues)</div>';
+    return;
+  }
+  const rows = r.bad.map(b => {
+    const kind = (b.kind === 'broken_link') ? 'lien brisé' : 'entrée illisible';
+    return '<div class="ea-row">« ' + esc(b.name) + ' » — ' + kind
+      + ' (' + esc(b.errno || 'erreur') + ')</div>'
+      + '<div class="ea-sub">position ' + (b.index + 1) + ' / ' + r.total
+      + ' dans l\'ordre physique · ' + b.after
+      + ' fichier(s) situé(s) derrière'
+      + (b.before_name ? ' · après « ' + esc(b.before_name) + ' »' : '') + '</div>';
+  }).join('');
+  const div = document.createElement('div');
+  div.className = 'entry-alert';
+  div.innerHTML = '<div class="ea-head">⚠ ' + r.n_bad
+    + ' entrée(s) de répertoire illisible(s) — jusqu\'à ' + r.worst_after
+    + ' fichier(s) peuvent être invisibles à l\'import Traktor</div>' + rows
+    + '<div class="ea-sub" style="margin-top:8px;">Clique pour ouvrir le dossier. '
+    + 'Correctif : recopier le dossier ailleurs (rsync), puis mettre l\'ancien de côté.</div>';
+  div.addEventListener('click', () => { if (API) API.reveal_file(r.root); });
+  box.appendChild(div);
+}
+
 async function scanIntegrity(){
   if (!API) return;
   $('integ-empty').style.display = 'none';
   $('integ-list').innerHTML = '';
   $('btn-scan-integ').disabled = true;
   integStop = false;
+  await checkDirEntries();
   const isDeep = (integMode === 'deep');
   const chunk = isDeep ? Math.max(8, parseInt($('integ-workers').value) || 4) : 80;
   const label = isDeep ? 'Analyse approfondie…' : 'Analyse…';
@@ -1779,7 +1815,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.10';
+const APP_VERSION = 'v1.5.11';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
