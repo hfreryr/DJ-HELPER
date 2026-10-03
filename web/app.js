@@ -656,7 +656,9 @@ function renderImport(res){
   let html = '';
   if (res.missing.length){
     html += '<div class="imp-section"><h3>Manquants — à récupérer</h3>'
-      + res.missing.map(m => '<div class="imp-row"><span class="q">' + esc(m.query) + '</span></div>').join('')
+      + res.missing.map(m => '<div class="imp-row"><span class="q">' + esc(m.query) + '</span>'
+          + (m.best ? '<span class="imp-best">plus proche sur la clé : « ' + esc(m.best) + ' » (' + m.best_score + ' %)</span>' : '')
+          + '</div>').join('')
       + '</div>';
   }
   if (res.review.length){
@@ -1815,7 +1817,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.11';
+const APP_VERSION = 'v1.5.12';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){

@@ -140,6 +140,17 @@ def match_title_key(artist, title):
     return nt
 
 
+_PAREN_ANY = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]")
+
+
+def _strip_all_parens(s):
+    """Retire TOUTE parenthèse/crochet : sous-titres (« (Génération Nan Nan) »,
+    « (Bye bye les galères) ») qui ne sont pas des mots-clés de version mais
+    font chuter la similarité du titre."""
+    out = _PAREN_ANY.sub("", s or "").strip()
+    return out or (s or "")
+
+
 def match_candidates(artist, title):
     """Paires (artiste, titre) normalisées candidates, robustes aux tags sales."""
     cands = []
@@ -154,6 +165,17 @@ def match_candidates(artist, title):
         t2 = match_title_key(before, after)
         if a2 and t2 and (a2, t2) not in cands:
             cands.append((a2, t2))
+    # variante sans sous-titre entre parenthèses
+    stripped = _strip_all_parens(raw)
+    if stripped != raw:
+        nt3 = match_title_key(artist, stripped)
+        if na and nt3 and (na, nt3) not in cands:
+            cands.append((na, nt3))
+        if " - " in stripped:
+            b, af = stripped.split(" - ", 1)
+            a4, t4 = normalize_string(b), match_title_key(b, af)
+            if a4 and t4 and (a4, t4) not in cands:
+                cands.append((a4, t4))
     return cands
 
 
@@ -3471,8 +3493,14 @@ class Core:
         score = min(similarité artiste, similarité titre) — porté du Tkinter."""
         from rapidfuzz import fuzz
         q_artist = normalize_string(artist or "")
-        q_title = match_title_key(artist, title)
-        if not q_artist or not q_title:
+        q_titles = [match_title_key(artist, title)]
+        st_t = _strip_all_parens(title)
+        if st_t != (title or ""):
+            q2 = match_title_key(artist, st_t)
+            if q2 and q2 not in q_titles:
+                q_titles.append(q2)
+        q_titles = [q for q in q_titles if q]
+        if not q_artist or not q_titles:
             return None, 0
         best = None
         best_score = -1
@@ -3481,7 +3509,7 @@ class Core:
                 if not ca or not ct:
                     continue
                 sa = fuzz.token_set_ratio(q_artist, ca)
-                st = fuzz.token_sort_ratio(q_title, ct)
+                st = max(fuzz.token_sort_ratio(q, ct) for q in q_titles)
                 score = sa if sa < st else st
                 if score > best_score:
                     best_score = score
@@ -3562,7 +3590,9 @@ class Core:
             elif local and score >= review_floor:
                 self._cmp_review.append({"query": label, "local": local["name"], "score": score})
             else:
-                self._cmp_missing.append({"query": label})
+                self._cmp_missing.append({"query": label,
+                                          "best": local["name"] if local else "",
+                                          "best_score": score if local else 0})
         self._cmp_idx = end
         finished = end >= len(entries)
         result = None
@@ -4126,7 +4156,13 @@ class Core:
                 self._rn_notags += 1
                 continue
             new = build_track_filename(artist, title, ext)
-            if unicodedata.normalize("NFC", new) == unicodedata.normalize("NFC", name):
+            # Clé FAT32/exFAT et APFS par défaut : insensibles à la casse. Un nom
+            # qui ne diffère que par la casse (ou la forme NFC/NFD) est DÉJÀ au
+            # format : le proposer relançait le même renommage à chaque passage,
+            # et l'application échouait (la cible « existait » : c'était le
+            # fichier lui-même).
+            if (unicodedata.normalize("NFC", new).casefold()
+                    == unicodedata.normalize("NFC", name).casefold()):
                 self._rn_already += 1
                 continue
             d = os.path.dirname(p)
@@ -4199,11 +4235,24 @@ class Core:
             p = data["path"]
             new_name = data["new_name"]
             target = os.path.join(os.path.dirname(p), new_name)
+            same = False
             if os.path.exists(target):
-                self._ra_fail += 1
-                continue
+                try:
+                    same = os.path.samefile(p, target)
+                except OSError:
+                    same = False
+                if not same:
+                    self._ra_fail += 1
+                    continue
             try:
-                os.rename(p, target)
+                if same:
+                    # même fichier (casse/forme Unicode) : passer par un nom
+                    # temporaire, sinon le système refuse ou ne change rien
+                    tmp = target + ".djh_tmp"
+                    os.rename(p, tmp)
+                    os.rename(tmp, target)
+                else:
+                    os.rename(p, target)
                 self._ra_ok += 1
                 if data.get("in_nml") and self._ra_nml_text is not None:
                     self._ra_nml_text, n = nml_rewrite_file(
