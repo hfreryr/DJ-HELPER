@@ -59,7 +59,7 @@ jobs:
           move ffbin\ffmpeg.exe ffmpeg.exe
       - name: Download fpcalc
         run: |
-          curl -L -o fpcalc.zip https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-windows-x86_64.zip
+          curl -fL -o fpcalc.zip https://github.com/acoustid/chromaprint/releases/download/v1.6.1/chromaprint-fpcalc-1.6.1-windows-x86_64.zip
           7z e fpcalc.zip -ofpbin fpcalc.exe -r
           move fpbin\fpcalc.exe fpcalc.exe
 
@@ -94,9 +94,14 @@ jobs:
           chmod +x ffmpeg
       - name: Download fpcalc
         run: |
-          curl -L -o fpcalc.tgz https://github.com/acoustid/chromaprint/releases/download/v1.5.1/chromaprint-fpcalc-1.5.1-macos-x86_64.tar.gz
+          curl -fL -o fpcalc.tgz https://github.com/acoustid/chromaprint/releases/download/v1.6.1/chromaprint-fpcalc-1.6.1-macos-universal.tar.gz
           tar xzf fpcalc.tgz --strip-components=1
           chmod +x fpcalc
+          # binaire universel (Intel + Apple Silicon) : l'appli est arm64, un
+          # fpcalc Intel seul échouait sur chaque fichier sans Rosetta
+          file fpcalc
+          lipo -archs fpcalc | grep -q arm64
+          ./fpcalc -version
       - name: Build icns
         run: |
           mkdir icon.iconset

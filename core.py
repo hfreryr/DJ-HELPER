@@ -514,23 +514,82 @@ def find_fpcalc():
     return None
 
 
-def acoustid_fingerprint_raw(filepath, fpcalc_path, timeout=120):
-    """Empreinte Chromaprint « raw » (liste d'entiers 32 bits) pour comparaison
-    LOCALE entre fichiers — pas d'API. Retourne (list[int], duration) ou (None, None)."""
-    import subprocess, json
+def _fpcalc_run(fpcalc_path, args, timeout):
+    """Lance fpcalc et renvoie (json | None, raison_de_l'échec). La raison est
+    lisible : avant, tout échec devenait « empreinte impossible », sans indice
+    (3 584 erreurs identiques sans savoir pourquoi)."""
+    import subprocess, json, errno as _errno
     try:
-        proc = subprocess.run([fpcalc_path, "-raw", "-json", str(filepath)],
-                              capture_output=True, text=True, timeout=timeout, **_quiet_run())
-        if proc.returncode != 0 or not proc.stdout.strip():
-            return None, None
-        data = json.loads(proc.stdout)
-        fp = data.get("fingerprint")
-        dur = data.get("duration")
-        if not fp or not dur:
-            return None, None
-        return fp, float(dur)
-    except Exception:
-        return None, None
+        proc = subprocess.run([fpcalc_path] + list(args), capture_output=True,
+                              text=True, timeout=timeout, **_quiet_run())
+    except subprocess.TimeoutExpired:
+        return None, "délai dépassé (%d s)" % timeout
+    except OSError as e:
+        if getattr(e, "errno", None) == 86 or "Bad CPU type" in str(e):
+            return None, ("fpcalc ne peut pas s'exécuter sur ce Mac (binaire Intel, "
+                          "Rosetta absent)")
+        if isinstance(e, PermissionError) or getattr(e, "errno", None) == _errno.EACCES:
+            return None, "fpcalc n'a pas le droit de s'exécuter (bloqué par le système ?)"
+        return None, "fpcalc ne démarre pas : %s" % str(e)[:160]
+    if proc.returncode < 0:
+        return None, ("fpcalc arrêté par le système (signal %d) — sur Mac, souvent "
+                      "Gatekeeper qui bloque le binaire" % -proc.returncode)
+    if proc.returncode != 0 or not proc.stdout.strip():
+        err = (proc.stderr or "").strip().splitlines()
+        msg = err[-1][:160] if err else "code %d" % proc.returncode
+        return None, msg if msg.lower().startswith("fpcalc") else "fpcalc : " + msg
+    try:
+        return json.loads(proc.stdout), ""
+    except ValueError:
+        return None, "fpcalc : réponse illisible"
+
+
+def fpcalc_selftest(fpcalc_path):
+    """'' si fpcalc fonctionne, sinon la raison. À appeler AVANT une analyse :
+    un fpcalc cassé faisait échouer silencieusement chaque fichier."""
+    import subprocess
+    try:
+        proc = subprocess.run([fpcalc_path, "-version"], capture_output=True,
+                              text=True, timeout=20, **_quiet_run())
+    except Exception as e:
+        _d, err = _fpcalc_run(fpcalc_path, ["-version"], 20)
+        return err or str(e)[:160]
+    if proc.returncode == 0:
+        return ""
+    if proc.returncode < 0:
+        return ("fpcalc arrêté par le système (signal %d) — sur Mac, souvent "
+                "Gatekeeper qui bloque le binaire" % -proc.returncode)
+    msg = (proc.stderr or proc.stdout or "").strip()[:160] or "code %d" % proc.returncode
+    return msg if msg.lower().startswith("fpcalc") else "fpcalc : " + msg
+
+
+_FPCALC_HEALTH = {}
+
+
+def fpcalc_health():
+    """Raison pour laquelle fpcalc ne marche pas ('' si OK ou absent). Testé
+    une fois par session (get_state est appelé souvent)."""
+    p = find_fpcalc()
+    if not p:
+        return ""
+    if p not in _FPCALC_HEALTH:
+        _FPCALC_HEALTH[p] = fpcalc_selftest(p)
+    return _FPCALC_HEALTH[p]
+
+
+def acoustid_fingerprint_raw(filepath, fpcalc_path, timeout=120, want_error=False):
+    """Empreinte Chromaprint « raw » (liste d'entiers 32 bits) pour comparaison
+    LOCALE entre fichiers — pas d'API. Retourne (list[int], duration) ou (None, None)
+    (+ la raison de l'échec si want_error)."""
+    data, err = _fpcalc_run(fpcalc_path, ["-raw", "-json", str(filepath)], timeout)
+    fp = (data or {}).get("fingerprint")
+    dur = (data or {}).get("duration")
+    if not fp or not dur:
+        out = (None, None)
+        err = err or "aucun son exploitable dans le fichier"
+    else:
+        out = (fp, float(dur))
+    return (out + (err,)) if want_error else out
 
 
 # Table de popcount 16 bits (initialisée à la 1re comparaison, partagée).
@@ -571,22 +630,18 @@ def fp_similarity(a, b, max_offset=15, min_overlap=40):
     return best
 
 
-def acoustid_fingerprint(filepath, fpcalc_path, timeout=60):
-    """Empreinte Chromaprint via fpcalc. Retourne (fingerprint, duration) ou (None, None)."""
-    import subprocess, json
-    try:
-        proc = subprocess.run([fpcalc_path, "-json", str(filepath)],
-                              capture_output=True, text=True, timeout=timeout, **_quiet_run())
-        if proc.returncode != 0 or not proc.stdout.strip():
-            return None, None
-        data = json.loads(proc.stdout)
-        fp = data.get("fingerprint")
-        dur = data.get("duration")
-        if not fp or not dur:
-            return None, None
-        return fp, int(round(float(dur)))
-    except Exception:
-        return None, None
+def acoustid_fingerprint(filepath, fpcalc_path, timeout=60, want_error=False):
+    """Empreinte Chromaprint via fpcalc. Retourne (fingerprint, duration) ou
+    (None, None) (+ la raison de l'échec si want_error)."""
+    data, err = _fpcalc_run(fpcalc_path, ["-json", str(filepath)], timeout)
+    fp = (data or {}).get("fingerprint")
+    dur = (data or {}).get("duration")
+    if not fp or not dur:
+        out = (None, None)
+        err = err or "aucun son exploitable dans le fichier"
+    else:
+        out = (fp, int(round(float(dur))))
+    return (out + (err,)) if want_error else out
 
 
 def acoustid_lookup(fingerprint, duration, client_key, timeout=20):
@@ -2412,7 +2467,11 @@ class Core:
                           "detail": "Non installé — analyse approfondie indisponible",
                           "nav": "home"})
         fp = find_fpcalc()
-        if fp:
+        fp_err = fpcalc_health() if fp else ""
+        if fp and fp_err:
+            items.append({"label": "fpcalc", "level": "warning",
+                          "detail": "Présent mais ne fonctionne pas — " + fp_err, "nav": "home"})
+        elif fp:
             items.append({"label": "fpcalc", "level": "ok", "detail": fp, "nav": "home"})
         else:
             items.append({"label": "fpcalc", "level": "warning",
@@ -2630,6 +2689,7 @@ class Core:
             # langue jamais choisie : l'interface prend celle du système
             "lang_set": bool(getattr(self, "lang_set", False)),
             "fpcalc": find_fpcalc() or "",
+            "fpcalc_error": fpcalc_health(),
             "ffmpeg": find_ffmpeg() or "",
             "free": free,
             "total": total,
@@ -3183,10 +3243,9 @@ class Core:
             pass
 
     def audiodup_begin(self, threshold=0.85):
-        fpcalc = find_fpcalc()
+        fpcalc, err = self._fpcalc_ready()
         if not fpcalc:
-            return {"ok": False, "total": 0,
-                    "error": "fpcalc introuvable — installe-le depuis la carte Configuration (accueil)."}
+            return {"ok": False, "total": 0, "error": err}
         res = self.scan_library()  # métadonnées (tags, bitrate, taille) pour l'affichage
         if not res.get("ok"):
             return {"ok": False, "total": 0, "error": res.get("error", "Scan impossible")}
@@ -3503,6 +3562,17 @@ class Core:
         except Exception:
             pass
 
+    @staticmethod
+    def _fpcalc_ready():
+        """(chemin, '') si fpcalc est utilisable, sinon (None, message)."""
+        fp = find_fpcalc()
+        if not fp:
+            return None, "fpcalc introuvable — installe-le depuis la carte Configuration (accueil)."
+        err = fpcalc_selftest(fp)
+        if err:
+            return None, "fpcalc ne fonctionne pas sur cet ordinateur : %s" % err
+        return fp, ""
+
     def acoustid_begin(self):
         audio = self.music_folder
         if not (audio and os.path.isdir(audio)):
@@ -3513,11 +3583,9 @@ class Core:
                     "error": "Clé AcoustID manquante. Renseigne-la sur l'accueil, "
                              "dans Configuration (gratuite sur acoustid.org), et clique "
                              "sur Enregistrer."}
-        fpcalc = find_fpcalc()
+        fpcalc, err = self._fpcalc_ready()
         if not fpcalc:
-            return {"ok": False, "total": 0,
-                    "error": "fpcalc introuvable — installe Chromaprint depuis la "
-                             "carte Configuration (accueil)."}
+            return {"ok": False, "total": 0, "error": err}
         paths = []
         for dirpath, dirnames, filenames in os.walk(audio):
             dirnames[:] = [d for d in dirnames if not is_junk(d)]
@@ -3546,10 +3614,11 @@ class Core:
             if res is None:
                 tags = self._read_tags(p)
                 artist = tags["artist"]
-                fp, dur = acoustid_fingerprint(p, self._ac_fpcalc)
+                fp, dur, fperr = acoustid_fingerprint(p, self._ac_fpcalc, want_error=True)
                 if not fp:
                     res = {"verdict": "error", "tag_artist": artist or "", "id_artist": "",
-                           "id_title": "", "score": 0.0, "error": "empreinte impossible"}
+                           "id_title": "", "score": 0.0, "error": "empreinte impossible : " + fperr,
+                           "fp_tool": fperr.startswith("fpcalc")}
                 else:
                     lk = acoustid_lookup(fp, dur, self._ac_key)
                     if lk["status"] == "error":
@@ -3586,6 +3655,17 @@ class Core:
         self._ac_i = end
         finished = end >= len(paths)
         result = None
+        # Coupe-circuit : 10 échecs de suite, tous pour la même raison, et aucun
+        # succès -> c'est l'outil ou le réseau, pas les fichiers. On s'arrête
+        # au lieu d'enchaîner des milliers d'échecs identiques.
+        errs = self._ac_lists["errors"]
+        if (not finished and len(errs) >= 10
+                and not (self._ac_match or self._ac_mismatches or self._ac_unident)
+                and len({e["sub"] for e in errs}) == 1):
+            self._save_acoustid_cache()
+            return {"done": end, "total": len(paths), "finished": True,
+                    "result": {"ok": False, "error": "Analyse arrêtée : les %d premiers fichiers "
+                               "ont tous échoué pour la même raison — %s" % (len(errs), errs[0]["sub"])}}
         if finished:
             self._save_acoustid_cache()
             result = {"ok": True, "mismatches": self._ac_mismatches,
@@ -3605,10 +3685,9 @@ class Core:
         if not key:
             return {"ok": False, "total": 0,
                     "error": "Clé AcoustID manquante (onglet Intégrité)."}
-        fpcalc = find_fpcalc()
+        fpcalc, err = self._fpcalc_ready()
         if not fpcalc:
-            return {"ok": False, "total": 0,
-                    "error": "fpcalc introuvable — installe-le depuis la carte Configuration (accueil)."}
+            return {"ok": False, "total": 0, "error": err}
         paths = []
         for dirpath, dirnames, filenames in os.walk(audio):
             dirnames[:] = [d for d in dirnames if not is_junk(d)]
@@ -3791,10 +3870,9 @@ class Core:
         if not key:
             return {"ok": False, "total": 0,
                     "error": "Clé AcoustID manquante (onglet Intégrité)."}
-        fpcalc = find_fpcalc()
+        fpcalc, err = self._fpcalc_ready()
         if not fpcalc:
-            return {"ok": False, "total": 0,
-                    "error": "fpcalc introuvable — installe-le depuis la carte Configuration (accueil)."}
+            return {"ok": False, "total": 0, "error": err}
         self.scan_library()  # indexer la base à laquelle on compare
         files = []
         for dirpath, dirnames, filenames in os.walk(folder):

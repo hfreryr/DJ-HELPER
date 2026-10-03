@@ -140,6 +140,12 @@ async function refreshHome(){
     };
     setTool('cfg-ffmpeg', st.ffmpeg);
     setTool('cfg-fpcalc', st.fpcalc);
+    if (st.fpcalc && st.fpcalc_error){
+      // trouvé mais inutilisable (binaire incompatible, bloqué par le système…)
+      const el = $('cfg-fpcalc');
+      el.innerHTML = '⚠️ ' + esc(t('présent mais ne fonctionne pas :')) + ' ' + esc(st.fpcalc_error);
+      el.classList.add('missing');
+    }
     loadAcoustidKey();
     updateHomeTiles();
     updateBackups();
@@ -872,17 +878,19 @@ async function updateIntegAckeyHint(){
   const h = $('ackey-missing-hint');
   if (h) h.style.display = hasKey ? 'none' : 'block';
   // bouton inutilisable tant qu'un prérequis manque (avant : actif, puis échec au clic)
-  $('btn-acoustid').disabled = !(hasKey && st.fpcalc);
-  showFpcalcMissing('acoustid-count', !st.fpcalc);
+  const fpOk = !!st.fpcalc && !st.fpcalc_error;
+  $('btn-acoustid').disabled = !(hasKey && fpOk);
+  showFpcalcMissing('acoustid-count', !fpOk);
 }
 
 // « Identifier » (onglet Tags) a les mêmes prérequis que la vérification AcoustID
 async function updateEnrichPrereq(){
   if (!API) return;
   const st = await API.get_state();
-  const ok = !!((st.acoustid_key || '').trim() && st.fpcalc);
+  const fpOk = !!st.fpcalc && !st.fpcalc_error;
+  const ok = !!((st.acoustid_key || '').trim() && fpOk);
   $('btn-enrich').disabled = !ok;
-  if (!st.fpcalc) showFpcalcMissing('enrich-count', true);
+  if (!fpOk) showFpcalcMissing('enrich-count', true);
   else if (!(st.acoustid_key || '').trim())
     $('enrich-count').innerHTML = '<span class="num-link warn go-config">' + esc(t('Clé AcoustID manquante — à définir dans la Configuration')) + ' ▸</span>';
 }
@@ -891,7 +899,7 @@ async function updateEnrichPrereq(){
 function showFpcalcMissing(chipId, missing){
   const el = $(chipId);
   if (!el || !missing) return;
-  el.innerHTML = '<span class="num-link warn go-config">' + esc(t('fpcalc non détecté — voir Configuration sur l’accueil')) + ' ▸</span>';
+  el.innerHTML = '<span class="num-link warn go-config">' + esc(t('fpcalc absent ou inutilisable — voir Configuration sur l’accueil')) + ' ▸</span>';
 }
 function goConfig(){
   navTo('home');
@@ -914,7 +922,7 @@ async function loadAcoustidKey(){
   const inp = $('acoustid-key');
   if (inp && st.acoustid_key !== undefined) inp.value = st.acoustid_key || '';
   setAckeyMode(!!(st.acoustid_key || '').trim());
-  showFpcalcMissing('acoustid-count', !st.fpcalc);
+  showFpcalcMissing('acoustid-count', !st.fpcalc || !!st.fpcalc_error);
 }
 
 async function saveAcoustidKey(){
@@ -944,7 +952,19 @@ async function checkAcoustid(){
     + (res.n_error ? ' · <span class="num-link" data-list="errors">' + res.n_error + ' erreurs ▸</span>' : '');
   lastAcoustid = res;
   if (!res.mismatches.length){
-    $('acoustid-results').innerHTML = '<div class="empty" style="color:var(--success)">Aucune divergence : le son correspond aux tags. 👌</div>';
+    // « tout correspond » seulement si des fichiers ont réellement été vérifiés
+    // (avant : affiché avec 0 conforme et 3 584 erreurs)
+    const checked = res.n_match;
+    const notChecked = (res.n_error || 0) + (res.n_unident || 0);
+    let html;
+    if (!checked)
+      html = '<div class="empty" style="color:var(--warning)">' + esc(t('Aucun fichier n’a pu être vérifié.'))
+        + (res.n_error ? ' ' + esc(t('Ouvre la liste des erreurs pour voir la cause.')) : '') + '</div>';
+    else if (notChecked)
+      html = '<div class="empty" style="color:var(--success)">' + esc(t('Aucune divergence parmi les fichiers vérifiés')) + ' (' + checked + ').</div>';
+    else
+      html = '<div class="empty" style="color:var(--success)">' + esc(t('Aucune divergence : le son correspond aux tags. 👌')) + '</div>';
+    $('acoustid-results').innerHTML = html;
     return;
   }
   $('acoustid-results').innerHTML = res.mismatches.map(m =>
@@ -2041,7 +2061,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.16';
+const APP_VERSION = 'v1.5.17';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){

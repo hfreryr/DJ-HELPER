@@ -342,3 +342,43 @@ def test_rename_scan_flags_existing_target_as_conflict(tmp_path, monkeypatch):
     res = c.rename_scan_step(100)["result"]
     assert res["n_rename"] == 0
     assert [x["name"] for x in res["conflicts"]] == ["Daft Punk - One More Time (1).mp3"]
+
+
+# --------------------------------------------------------------- fpcalc
+def _fake_fpcalc(tmp_path, body, mode=0o755):
+    p = tmp_path / "fpcalc"
+    p.write_text("#!/bin/sh\n" + body + "\n")
+    os.chmod(str(p), mode)
+    return str(p)
+
+
+def test_fpcalc_errors_are_explained(tmp_path):
+    f = tmp_path / "a.mp3"
+    f.write_bytes(b"x")
+    bad = _fake_fpcalc(tmp_path, 'echo "ERROR: Could not open the input file" >&2; exit 2')
+    fp, dur, err = core.acoustid_fingerprint(str(f), bad, want_error=True)
+    assert fp is None and "Could not open the input file" in err
+    killed = _fake_fpcalc(tmp_path, 'kill -9 $$')
+    assert "arrêté par le système" in core.fpcalc_selftest(killed)
+    noexec = _fake_fpcalc(tmp_path, 'exit 0', mode=0o644)
+    assert "droit" in core.fpcalc_selftest(noexec)
+    ok = _fake_fpcalc(tmp_path, 'echo "{\\"fingerprint\\": \\"AQAA\\", \\"duration\\": 12.4}"')
+    assert core.fpcalc_selftest(ok) == ""
+    assert core.acoustid_fingerprint(str(f), ok) == ("AQAA", 12)
+
+
+def test_acoustid_stops_after_identical_failures(tmp_path, monkeypatch):
+    music = tmp_path / "Music"
+    for i in range(30):
+        _touch(str(music / ("t%02d.mp3" % i)))
+    bad = _fake_fpcalc(tmp_path, 'case "$1" in -version) echo "fpcalc 1.6.1";; '
+                                 '*) echo "ERROR: decoder broken" >&2; exit 3;; esac')
+    monkeypatch.setattr(core, "find_fpcalc", lambda: bad)
+    c = _bare_core(music_folder=str(music), acoustid_key="k")
+    c._acoustid_cache = {}
+    c._read_tags = lambda p: {"artist": "A", "title": "T", "bitrate": None, "duration": None}
+    c._save_acoustid_cache = lambda: None
+    assert c.acoustid_begin()["ok"]
+    st = c.acoustid_step(12)
+    assert st["finished"] and not st["result"]["ok"]
+    assert "decoder broken" in st["result"]["error"]
