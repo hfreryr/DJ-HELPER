@@ -81,6 +81,15 @@ NOISE_YT = re.compile(
     re.IGNORECASE,
 )
 TRACK_NUMBER_PREFIX = re.compile(r"^\d+\s*[-.\s]+")
+_VERSION_WORD = re.compile(
+    r"\b(original|radio|extended|club|edit|mix|version|remaster\w*|remix|rework|"
+    r"bootleg|dub|instrumental|acoustic|live|vip|rmx)\b", re.IGNORECASE)
+
+
+# lettres que NFKD ne décompose pas (Røyksopp, Mötley, Œ, Łódź, ß…)
+_TRANSLIT = str.maketrans({"ø": "o", "Ø": "O", "æ": "ae", "Æ": "AE", "œ": "oe",
+                           "Œ": "OE", "ł": "l", "Ł": "L", "đ": "d", "Đ": "D",
+                           "ß": "ss", "þ": "th", "ð": "d", "ı": "i"})
 
 
 def normalize_string(s, keep_versions=False):
@@ -89,15 +98,25 @@ def normalize_string(s, keep_versions=False):
     utile pour la détection de doublons, où un remix ≠ son original."""
     if not s:
         return ""
-    s = unicodedata.normalize("NFKD", s)
+    s = unicodedata.normalize("NFKD", s).translate(_TRANSLIT)
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = s.lower()
     s = COPY_SUFFIX.sub("", s)
     if not keep_versions:
         s = NOISE_KEYWORDS.sub("", s)
-    s = NOISE_FEAT.sub("", s)
-    s = NOISE_YT.sub("", s)
-    s = NOISE_BRACKETS.sub("", s)
+        s = NOISE_FEAT.sub("", s)
+        s = NOISE_YT.sub("", s)
+        s = NOISE_BRACKETS.sub("", s)
+    else:
+        # doublons : un bloc qui porte une info de version (« (Club Mix feat.
+        # X) », « [Extended Mix] », « (Live Video) ») est gardé, sinon un remix
+        # et son original seraient fusionnés — et l'un des deux mis de côté
+        # « (Original Mix) » = la version de référence, pas une variante
+        s = re.sub(r"[\(\[]\s*original(?: mix| version)?\s*[\)\]]", "", s)
+        keep_or_drop = lambda m: m.group(0) if _VERSION_WORD.search(m.group(0)) else ""
+        s = NOISE_FEAT.sub(keep_or_drop, s)
+        s = NOISE_YT.sub(keep_or_drop, s)
+        s = NOISE_BRACKETS.sub(keep_or_drop, s)
     s = FEATURING.sub("", s)
     s = re.sub(r"[^\w\s]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
@@ -572,7 +591,7 @@ def acoustid_fingerprint(filepath, fpcalc_path, timeout=60):
 
 def acoustid_lookup(fingerprint, duration, client_key, timeout=20):
     """Interroge AcoustID. Retourne {status: ok/no_match/error, matches:[(score,artist,title)], error}."""
-    import json, ssl, urllib.request, urllib.parse, urllib.error
+    import json, urllib.request, urllib.parse, urllib.error
     ctx = _ssl_ctx()
     try:
         params = urllib.parse.urlencode({
@@ -652,7 +671,7 @@ def _ssl_ctx():
 def acoustid_identify(fingerprint, duration, client_key, timeout=15):
     """Lookup AcoustID enrichi (recordings + release groups). Retourne
     {status, candidates, error} ; candidates triés par score."""
-    import json, ssl, urllib.request, urllib.parse, urllib.error
+    import json, urllib.request, urllib.parse, urllib.error
     ctx = _ssl_ctx()
     try:
         params = urllib.parse.urlencode({
@@ -715,7 +734,7 @@ def choose_release_group(releasegroups):
 
 def mb_releasegroup_date(rg_mbid, timeout=15):
     """Année de première sortie d'un release group via MusicBrainz, ou ""."""
-    import json, ssl, urllib.request, urllib.error
+    import json, urllib.request, urllib.error
     if not rg_mbid:
         return ""
     ctx = _ssl_ctx()
@@ -732,7 +751,7 @@ def mb_releasegroup_date(rg_mbid, timeout=15):
 def caa_front_cover(rg_mbid, size=500, timeout=25):
     """Pochette front d'un release group via Cover Art Archive.
     Retourne (bytes, mime) ou (None, None) si absente."""
-    import ssl, urllib.request, urllib.error
+    import urllib.request, urllib.error
     if not rg_mbid:
         return None, None
     ctx = _ssl_ctx()
@@ -1017,7 +1036,41 @@ def bk_index(root):
 def bk_differs(a, b):
     if a[0] != b[0]:
         return True
-    return abs(a[1] - b[1]) > BK_MTIME_TOL
+    d = abs(a[1] - b[1])
+    if d <= BK_MTIME_TOL:
+        return False
+    # FAT32 stocke l'heure LOCALE : au changement d'heure été/hiver, tous les
+    # fichiers semblent décalés d'exactement 1 h. Même taille + 1 h pile = identique.
+    return abs(d - 3600) > BK_MTIME_TOL
+
+
+def path_key(p):
+    """Clé de comparaison de chemins pour clés FAT32/exFAT et macOS : insensible
+    à la casse et à la forme Unicode (NFC/NFD)."""
+    import unicodedata
+    return unicodedata.normalize("NFC", p).casefold()
+
+
+def path_inside(child, parent):
+    """Vrai si child est DANS parent (pas égal)."""
+    try:
+        c = path_key(os.path.normcase(os.path.realpath(child)))
+        p = path_key(os.path.normcase(os.path.realpath(parent))).rstrip(os.sep) + os.sep
+    except Exception:
+        return False
+    return c.startswith(p) and c != p.rstrip(os.sep)
+
+
+def paths_overlap(a, b):
+    """Vrai si a et b sont le même dossier ou si l'un contient l'autre. Sert à
+    refuser une synchro/sauvegarde qui écrirait dans sa propre source (ou
+    supprimerait la source comme « fichiers en trop »)."""
+    try:
+        ra = path_key(os.path.normcase(os.path.realpath(a))).rstrip(os.sep) + os.sep
+        rb = path_key(os.path.normcase(os.path.realpath(b))).rstrip(os.sep) + os.sep
+    except Exception:
+        return True
+    return ra.startswith(rb) or rb.startswith(ra)
 
 
 _FN_INVALID = __import__("re").compile(r'[*?"<>|]')
@@ -1079,22 +1132,6 @@ def physical_to_nml_dir(file_path, mount):
     return "/:" + "".join(p + "/:" for p in parts)
 
 
-def nml_index_locations(nml_text, volume):
-    """Index { (dir_nfc, file_nfc) : (dir_raw, file_raw) } pour un volume."""
-    import unicodedata
-    idx = {}
-    loc_re = re.compile(
-        r'<LOCATION DIR="([^"]*)" FILE="([^"]*)" VOLUME="' + re.escape(volume) + r'"')
-    for m in loc_re.finditer(nml_text):
-        dir_raw, file_raw = m.group(1), m.group(2)
-        key = (unicodedata.normalize("NFC", _xml_unescape(dir_raw)),
-               unicodedata.normalize("NFC", _xml_unescape(file_raw)))
-        idx[key] = (dir_raw, file_raw)
-    return idx
-
-
-
-
 def nml_index_locations_any(nml_text):
     """Index { (dir_nfc, file_nfc) : (dir_raw, file_raw, volume_raw) } — tous
     volumes confondus. Indispensable en multi-plateforme : un nml écrit sur Mac
@@ -1110,15 +1147,59 @@ def nml_index_locations_any(nml_text):
         idx.setdefault(key, (dir_raw, file_raw, vol_raw))
     return idx
 
-def nml_rewrite_file(nml_text, dir_raw, old_file_raw, volume, new_file):
-    """Remplace l'attribut FILE de la LOCATION ciblée (match exact unique).
-    Retourne (texte, n_match). n_match != 1 => on ne touche à rien."""
-    needle = '<LOCATION DIR="%s" FILE="%s" VOLUME="%s"' % (dir_raw, old_file_raw, volume)
-    n = nml_text.count(needle)
-    if n != 1:
-        return nml_text, n
-    repl = '<LOCATION DIR="%s" FILE="%s" VOLUME="%s"' % (dir_raw, _xml_escape_attr(new_file), volume)
-    return nml_text.replace(needle, repl), 1
+def nml_rename_file(nml_text, dir_nfc, old_file_nfc, new_file):
+    """Renomme un fichier dans collection.nml : l'attribut FILE de TOUTES ses
+    LOCATION (un même fichier peut figurer sous plusieurs volumes : label Mac,
+    lettre Windows…) ET toutes les références de playlist (PRIMARYKEY KEY =
+    VOLUME + DIR + FILE, échappés comme les attributs). Sans la seconde partie,
+    le morceau disparaît des playlists Traktor après renommage.
+    Retourne (texte, n_locations, n_references)."""
+    import unicodedata
+    nfc = lambda x: unicodedata.normalize("NFC", x)
+    loc_re = re.compile(r'(<LOCATION DIR=")([^"]*)(" FILE=")([^"]*)(" VOLUME=")([^"]*)(")')
+    new_raw = _xml_escape_attr(new_file)
+    keys = []
+
+    def sub(m):
+        if (nfc(_xml_unescape(m.group(2))) == dir_nfc
+                and nfc(_xml_unescape(m.group(4))) == old_file_nfc):
+            keys.append((m.group(6) + m.group(2) + m.group(4),
+                         m.group(6) + m.group(2) + new_raw))
+            return m.group(1) + m.group(2) + m.group(3) + new_raw + m.group(5) + m.group(6) + m.group(7)
+        return m.group(0)
+    text = loc_re.sub(sub, nml_text)
+    n_ref = 0
+    for old_k, new_k in dict(keys).items():
+        needle = 'KEY="%s"' % old_k
+        c = text.count(needle)
+        if c:
+            text = text.replace(needle, 'KEY="%s"' % new_k)
+            n_ref += c
+    return text, len(keys), n_ref
+
+
+def nml_dangling_refs(nml_text):
+    """Références de playlist (PRIMARYKEY TYPE="TRACK") qui ne pointent vers
+    aucune LOCATION de la collection. Traktor les supprime silencieusement des
+    playlists au chargement. Typiquement : renommage hors Traktor (casse,
+    accents). Retourne [(clé_cassée, clé_réparée ou None)] ; une réparation
+    n'est proposée que si UNE seule entrée correspond sans tenir compte de la
+    casse ni de la forme Unicode."""
+    loc_re = re.compile(r'<LOCATION DIR="([^"]*)" FILE="([^"]*)" VOLUME="([^"]*)"')
+    exact, by_key = set(), {}
+    for m in loc_re.finditer(nml_text):
+        raw = m.group(3) + m.group(1) + m.group(2)
+        exact.add(raw)
+        by_key.setdefault(path_key(_xml_unescape(raw)), set()).add(raw)
+    out, seen = [], set()
+    for m in re.finditer(r'<PRIMARYKEY TYPE="TRACK" KEY="([^"]*)"', nml_text):
+        k = m.group(1)
+        if k in exact or k in seen:
+            continue
+        seen.add(k)
+        cands = by_key.get(path_key(_xml_unescape(k)), set())
+        out.append((k, next(iter(cands)) if len(cands) == 1 else None))
+    return out
 
 
 def _bk_safe_name(name):
@@ -1200,6 +1281,98 @@ _LEGACY_BAK = [
     (re.compile(r"^collection_(\d{8})_(\d{6})\.nml\.bak$"), True),
     (re.compile(r"^collection\.avant-validation-(\d{8})\.nml$"), False),
 ]
+
+
+def json_save_atomic(path, data, **kw):
+    """Écrit un JSON sans jamais laisser un fichier tronqué (coupure, clé
+    retirée) : fichier temporaire + fsync + remplacement atomique."""
+    import json, tempfile
+    fd, tmp = tempfile.mkstemp(prefix=".djh_", suffix=".tmp",
+                               dir=os.path.dirname(os.path.abspath(path)))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, **kw)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
+def json_quarantine(path):
+    """Renomme un JSON corrompu en « .corrupt-AAAAMMJJ_HHMMSS » (jamais écrasé)."""
+    import datetime
+    try:
+        if os.path.isfile(path):
+            os.replace(path, path + ".corrupt-" +
+                       datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+    except OSError:
+        pass
+
+
+import threading as _threading
+# Un seul écrivain de collection.nml à la fois : pywebview exécute chaque appel
+# JS dans son propre thread (validation + enrichissement auto + renommage
+# peuvent se croiser). Lire-modifier-écrire se fait TOUJOURS sous ce verrou.
+NML_LOCK = _threading.RLock()
+
+
+def nml_read(nml_path):
+    """Lit collection.nml sans toucher aux fins de ligne (newline="")."""
+    with open(nml_path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def nml_write_atomic(nml_path, text):
+    """Écrit collection.nml de façon sûre : le XML est validé AVANT toute
+    écriture, puis fichier temporaire + fsync + remplacement atomique. Une
+    coupure (clé débranchée, crash) laisse l'ancien fichier intact, jamais un
+    fichier tronqué. Lève une exception si le texte n'est pas du XML valide."""
+    import xml.etree.ElementTree as ET
+    ET.fromstring(text.encode("utf-8"))          # refuse d'écrire un nml cassé
+    tmp = nml_path + ".djh_tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                pass
+        os.replace(tmp, nml_path)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+
+def xml_set_attr(tag, name, value):
+    """Pose name="value" sur une balise ouvrante (y compris auto-fermante).
+    `value` doit déjà être échappé. Remplacement par fonction : un antislash
+    dans la valeur (« AC/DC » mal tapé « AC\\DC ») n'est jamais interprété."""
+    new = '%s="%s"' % (name, value)
+    pat = re.compile(r'(\s)%s="[^"]*"' % re.escape(name))
+    if pat.search(tag):
+        return pat.sub(lambda m: m.group(1) + new, tag, count=1)
+    if tag.endswith("/>"):
+        return tag[:-2].rstrip() + " " + new + "/>"
+    return tag[:-1].rstrip() + " " + new + ">"
+
+
+def xml_del_attr(tag, name):
+    return re.sub(r'\s+%s="[^"]*"' % re.escape(name), "", tag)
+
+
+def xml_get_attr(tag, name):
+    import html as _h
+    m = re.search(r'\s%s="([^"]*)"' % re.escape(name), tag)
+    return _h.unescape(m.group(1)) if m else None
 
 
 def nml_backup_dir(nml_path):
@@ -1369,129 +1542,170 @@ def bk_latest_snapshot(backup_root):
 
 def fix_duplicates_via_playlists(nml_text, mount, volume, groups, master_choices,
                                  backup_dir, usb_root, log=None):
-    """Corrige les doublons SANS casser les liens playlist. Pour chaque groupe,
-    toute référence (PRIMARYKEY) d'une copie est réécrite vers le master dans la
-    section PLAYLISTS ; les copies sont déplacées vers backup_dir (réversible).
-    La section COLLECTION n'est pas touchée (les copies deviennent « missing »
-    → Remove Missing dans Traktor). Retourne (new_nml_text, stats)."""
+    """Prépare la correction des doublons SANS rien toucher sur le disque.
+    Pour chaque groupe, toute référence de playlist (PRIMARYKEY) d'une copie
+    est réécrite vers le master, pour CHAQUE volume sous lequel la copie
+    apparaît dans le nml (clé Mac « FRASANDISK », Windows « T: », clé de
+    secours…). Une copie n'est proposée au déplacement que si plus aucune
+    playlist ne la référence après réécriture : on ne crée jamais de trou dans
+    une playlist. Le déplacement lui-même est fait par l'appelant, APRÈS
+    l'écriture réussie du nml. Retourne (new_nml_text, stats) ; stats["to_move"]
+    liste les copies à déplacer."""
     import unicodedata
-    import shutil
-    idx = nml_index_locations_any(nml_text)   # volume lu depuis le nml, jamais deviné
+    variants = {}                      # (dir_nfc, file_nfc) -> [(dir_raw, file_raw, vol_raw)…]
+    loc_re = re.compile(r'<LOCATION DIR="([^"]*)" FILE="([^"]*)" VOLUME="([^"]*)"')
+    for m in loc_re.finditer(nml_text):
+        k = (unicodedata.normalize("NFC", _xml_unescape(m.group(1))),
+             unicodedata.normalize("NFC", _xml_unescape(m.group(2))))
+        v = (m.group(1), m.group(2), m.group(3))
+        if v not in variants.setdefault(k, []):
+            variants[k].append(v)
 
-    def nml_key(path):
+    def nml_keys(path):
+        """Toutes les clés PRIMARYKEY possibles de ce fichier, par volume."""
         try:
             d = physical_to_nml_dir(path, mount)
             k = (unicodedata.normalize("NFC", d),
                  unicodedata.normalize("NFC", os.path.basename(path)))
-            raw = idx.get(k)
-            if not raw:
-                return None
-            dir_raw, file_raw, vol_raw = raw
-            return "%s%s%s" % (vol_raw, dir_raw, file_raw)
         except Exception:
-            return None
+            return []
+        return [(vol, "%s%s%s" % (vol, dr, fr)) for dr, fr, vol in variants.get(k, [])]
 
-    def move_to_backup(path):
-        try:
-            rel = os.path.relpath(path, usb_root)
-        except Exception:
-            rel = os.path.basename(path)
-        target = os.path.join(backup_dir, rel)
-        try:
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            shutil.move(path, target)
-            return True
-        except Exception as e:
-            if log:
-                log("   ✗ Déplacement impossible : %s — %s" % (os.path.basename(path), e))
-            return False
+    def still_referenced(text, keys):
+        return any(('KEY="%s"' % k) in text for _v, k in keys)
 
     new_text = nml_text
-    n_repointed = n_groups = n_moved = 0
-    moved = []
+    n_repointed = n_groups = 0
+    to_move, kept_back, notes = [], [], []
 
     for key, group in groups.items():
         master_path = master_choices.get(key) or ""
-        master_key = nml_key(master_path) if master_path not in ("", ".") else None
-        if master_key is None:
-            in_coll = [t for t in group if nml_key(t["path"]) is not None]
+        mkeys = nml_keys(master_path) if master_path not in ("", ".") else []
+        if not mkeys:
+            in_coll = [t for t in group if nml_keys(t["path"])]
             if not in_coll:
-                # Aucune version dans la collection : groupe hors playlists.
+                # aucune version dans la collection : pas de playlist à protéger
                 master = select_master(group)
                 for t in group:
-                    if t["path"] == master["path"]:
-                        continue
-                    if move_to_backup(t["path"]):
-                        n_moved += 1
-                        moved.append(t["path"])
+                    if t["path"] != master["path"]:
+                        to_move.append(t["path"])
                 continue
-            master = select_master(in_coll)
-            master_path = master["path"]
-            master_key = nml_key(master_path)
-            if log:
-                log("   ⚠ Master remplacé (le choisi était hors collection) : %s"
-                    % os.path.basename(master_path))
-
+            chosen = master_path
+            master_path = select_master(in_coll)["path"]
+            mkeys = nml_keys(master_path)
+            if chosen:
+                notes.append("Version gardée remplacée (la tienne n'est pas dans Traktor) : %s"
+                             % os.path.basename(master_path))
+        mkey_by_vol = {}
+        for vol, k in mkeys:
+            mkey_by_vol.setdefault(vol, k)
+        default_mkey = mkeys[0][1]
         n_groups += 1
         for t in group:
             p = t["path"]
             if p == master_path:
                 continue
-            ckey = nml_key(p)
-            if ckey and ckey != master_key:
+            ckeys = nml_keys(p)
+            for vol, ckey in ckeys:
+                target = mkey_by_vol.get(vol, default_mkey)
+                if ckey == target:
+                    continue
                 needle = 'KEY="%s"' % ckey
                 cnt = new_text.count(needle)
                 if cnt:
-                    new_text = new_text.replace(needle, 'KEY="%s"' % master_key)
+                    new_text = new_text.replace(needle, 'KEY="%s"' % target)
                     n_repointed += cnt
-            if move_to_backup(p):
-                n_moved += 1
-                moved.append(p)
-
+            if still_referenced(new_text, ckeys):
+                kept_back.append(p)          # sécurité : jamais de trou dans une playlist
+            else:
+                to_move.append(p)
+    if log:
+        for n in notes:
+            log("   ⚠ " + n)
     return new_text, {"n_repointed": n_repointed, "n_groups": n_groups,
-                      "n_moved": n_moved, "moved_files": moved}
+                      "to_move": to_move, "kept_back": kept_back, "notes": notes}
+
+
+def move_dup_copies(paths, backup_dir, usb_root, log=None):
+    """Déplace les copies vers backup_dir en conservant leur chemin relatif."""
+    import shutil
+    moved, failed = [], []
+    for path in paths:
+        try:
+            rel = os.path.relpath(path, usb_root)
+        except Exception:
+            rel = os.path.basename(path)
+        if rel.startswith(".."):
+            rel = os.path.basename(path)
+        target = os.path.join(backup_dir, rel)
+        try:
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.move(path, target)
+            moved.append(path)
+        except Exception as e:
+            failed.append(path)
+            if log:
+                log("   ✗ Déplacement impossible : %s — %s" % (os.path.basename(path), e))
+    return moved, failed
 
 
 def restore_from_backup(backup_dir, usb_root, log=None):
-    """Restaure les fichiers depuis backup_dir vers leur emplacement d'origine.
-    Si l'extension a changé entretemps, supprime le fichier au nouveau suffixe.
-    Retourne {n_restored, n_failed}."""
+    """Remet les copies mises de côté à leur emplacement d'origine. Ne supprime
+    JAMAIS aucun fichier de la clé : si un fichier porte déjà ce nom à cet
+    endroit, il est laissé tel quel et la copie reste dans le backup (conflit
+    signalé). Les fichiers restaurés sont DÉPLACÉS hors du backup. Retourne {n_restored, n_failed, n_conflict}."""
     import shutil
-    import glob
-    n_restored = n_failed = 0
+    n_restored = n_failed = n_conflict = 0
     for dirpath, dirnames, filenames in os.walk(backup_dir):
         for name in filenames:
             f = os.path.join(dirpath, name)
             try:
                 rel = os.path.relpath(f, backup_dir)
                 original = os.path.join(usb_root, rel)
+                if os.path.exists(original):
+                    n_conflict += 1
+                    if log:
+                        log("   ⚠ Déjà présent, non écrasé : %s" % rel)
+                    continue
                 os.makedirs(os.path.dirname(original), exist_ok=True)
-                stem = os.path.splitext(os.path.basename(original))[0]
-                oext = os.path.splitext(original)[1].lower()
-                for sib in glob.glob(os.path.join(os.path.dirname(original), stem + ".*")):
-                    if os.path.splitext(sib)[1].lower() != oext:
-                        try:
-                            os.unlink(sib)
-                        except Exception:
-                            pass
-                shutil.copy2(f, original)
+                shutil.move(f, original)
                 n_restored += 1
             except Exception as e:
                 n_failed += 1
                 if log:
                     log("   ✗ Échec restauration : %s — %s" % (f, e))
-    return {"n_restored": n_restored, "n_failed": n_failed}
+    # dossiers devenus vides : on les retire (le backup disparaît s'il est vidé)
+    for dirpath, dirnames, filenames in os.walk(backup_dir, topdown=False):
+        try:
+            os.rmdir(dirpath)
+        except OSError:
+            pass
+    return {"n_restored": n_restored, "n_failed": n_failed, "n_conflict": n_conflict}
 
 
 
 # ================== ENRICHISSEMENT EN LIGNE (année + genre) ==================
 # Cascades multi-sources portées des prototypes validés en session :
-# année  : iTunes -> Deezer -> Discogs -> Beatport -> Bandcamp   (écrite si trouvée)
-# genre  : table artiste utilisateur -> Beatport (électro) -> Discogs styles (proposé)
+# année  : iTunes -> Deezer -> Beatport -> Bandcamp -> SoundCloud  (écrite si trouvée)
+# genre  : table artiste (tes validations + mémoire embarquée) -> Beatport (proposé)
 
 _ENR_UA_JSON = {"User-Agent": "DJHelper/1.1 (+https://github.com/hfreryr/DJ-HELPER)"}
 _ENR_UA_HTML = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                               "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"}
+
+
+import threading as _thr_enr
+_ENR_NET = _thr_enr.local()   # échecs réseau du thread courant (cf. enr_find_year)
+
+
+def _enr_net_failed(e):
+    """Note un échec RÉSEAU (hors-ligne, délai, 429, 5xx) — distinct d'un
+    « pas de résultat » (404…), pour ne pas classer « introuvable » un morceau
+    qu'on n'a simplement pas pu chercher."""
+    import urllib.error
+    if isinstance(e, urllib.error.HTTPError) and e.code < 500 and e.code != 429:
+        return
+    _ENR_NET.fails = getattr(_ENR_NET, "fails", 0) + 1
 
 
 def _enr_getj(url, timeout=14):
@@ -1500,7 +1714,10 @@ def _enr_getj(url, timeout=14):
         req = urllib.request.Request(url, headers=_ENR_UA_JSON)
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
             return json.loads(r.read().decode("utf-8", "ignore"))
-    except Exception:
+    except ValueError:
+        return None                       # réponse non JSON : pas un échec réseau
+    except Exception as e:
+        _enr_net_failed(e)
         return None
 
 
@@ -1510,14 +1727,16 @@ def _enr_geth(url, timeout=18):
         req = urllib.request.Request(url, headers=_ENR_UA_HTML)
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
             return r.read().decode("utf-8", "ignore")
-    except Exception:
+    except Exception as e:
+        _enr_net_failed(e)
         return None
 
 
 def _enr_norm(s):
     """Normalisation avec translittération des accents (Dwèt -> dwet)."""
     import re, unicodedata
-    s = unicodedata.normalize("NFD", (s or "")).encode("ascii", "ignore").decode()
+    s = unicodedata.normalize("NFD", (s or "")).translate(_TRANSLIT)
+    s = s.encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
@@ -1532,7 +1751,7 @@ def _enr_primary_artist(a):
 def _enr_clean_title(t, artist=""):
     import re
     t = re.sub(r"\[.*?\]", "", t)
-    t = re.sub(r"^.{3,45}\s+-\s+\d{1,2}\s+", "", t)          # préfixe compilation
+    t = _strip_compilation_prefix(t)
     t = re.sub(r"\((feat\.?|with|ft\.?)[^)]*\)", "", t, flags=re.I)
     if artist:
         t = re.sub(r"^%s\s*[-–]\s*" % re.escape(_enr_primary_artist(artist)),
@@ -1580,30 +1799,6 @@ def _enr_year_deezer(a, t):
                 if y.isdigit():
                     return int(y)
     return None
-
-
-_ENR_DC_LAST = [0.0]
-
-
-def _enr_discogs_search(a, t):
-    import time, urllib.parse
-    wait = 1.05 - (time.time() - _ENR_DC_LAST[0])
-    if wait > 0:
-        time.sleep(wait)
-    _ENR_DC_LAST[0] = time.time()
-    return _enr_getj(
-        "https://api.discogs.com/database/search?artist=%s&track=%s"
-        "&type=release&per_page=8"
-        % (urllib.parse.quote(a), urllib.parse.quote(t)))
-
-
-def _enr_year_discogs(a, t):
-    d = _enr_discogs_search(a, t)
-    if not d or not d.get("results"):
-        return None
-    ys = [int(str(r["year"])) for r in d["results"]
-          if str(r.get("year") or "").isdigit()]
-    return min(ys) if ys else None
 
 
 def _enr_beatport_tracks(a, t):
@@ -1667,23 +1862,26 @@ def _enr_year_bandcamp(a, t):
     return None
 
 
-_ENR_SC_CID = [None]
+_ENR_SC_CID = [None, 0.0]       # (client_id, heure du dernier échec)
 
 
 def _enr_sc_client_id():
-    """Extrait le client_id public des bundles JS de soundcloud.com (cache)."""
-    import re
-    if _ENR_SC_CID[0] is not None:
+    """Extrait le client_id public des bundles JS de soundcloud.com (cache).
+    Un échec n'est mémorisé que 10 min (avant : toute la session)."""
+    import re, time
+    if _ENR_SC_CID[0]:
         return _ENR_SC_CID[0]
-    _ENR_SC_CID[0] = ""
+    if time.time() - _ENR_SC_CID[1] < 600:
+        return ""
     h = _enr_geth("https://soundcloud.com/") or ""
     for src in re.findall(r'src="(https://a-v2\.sndcdn\.com/assets/[^"]+\.js)"', h)[::-1]:
         js = _enr_geth(src, 20) or ""
         m = re.search(r'client_id\s*[:=]\s*"([A-Za-z0-9]{20,40})"', js)
         if m:
             _ENR_SC_CID[0] = m.group(1)
-            break
-    return _ENR_SC_CID[0]
+            return _ENR_SC_CID[0]
+    _ENR_SC_CID[1] = time.time()
+    return ""
 
 
 def _enr_year_soundcloud(a, t):
@@ -1719,11 +1917,16 @@ def enr_find_year(artist, title):
     import time
     a = _enr_primary_artist(artist)
     t = _enr_clean_title(title, artist)
-    if not a or not t:
+    # artiste/titre sans lettre latine (« 東京 », « ★ ») : la normalisation
+    # donne « », qui est contenu dans TOUT — n'importe quel résultat serait
+    # accepté. On ne cherche pas.
+    if not _enr_norm(a) or not _enr_norm(t):
         return None, None
+    _ENR_NET.fails = 0
+    # Discogs retiré : sa recherche exige un jeton d'API (401 sans), la
+    # source ne renvoyait jamais rien et coûtait 1 s par morceau.
     for name, fn, lo in (("iTunes", _enr_year_itunes, 1950),
                          ("Deezer", _enr_year_deezer, 1950),
-                         ("Discogs", _enr_year_discogs, 1950),
                          ("Beatport", _enr_year_beatport, 1990),
                          ("Bandcamp", _enr_year_bandcamp, 1990),
                          ("SoundCloud", _enr_year_soundcloud, 2005)):
@@ -1734,6 +1937,8 @@ def enr_find_year(artist, title):
         if y and lo <= y <= 2030:
             return y, name
         time.sleep(0.25)
+    if getattr(_ENR_NET, "fails", 0):
+        return None, "réseau"            # pas « introuvable » : on retentera
     return None, None
 
 
@@ -1761,7 +1966,20 @@ def enr_energy(bpm, genre):
 _RV_KEEP_BRACKET = ("mix", "edit", "remix", "version", "extended", "radio",
                     "club", "original", "instrumental", "acapella", "vip",
                     "bootleg", "rework", "flip", "dub", "live", "feat",
-                    "ft.", "with ")
+                    "ft.", "with ", "dirty", "clean", "explicit")
+
+
+def _strip_compilation_prefix(t):
+    """« Album - 07 Titre » -> « Titre ». Numéro à zéro initial : toujours.
+    Numéro 10-99 : seulement si la partie gauche compte au moins deux mots
+    (« Now 80 - 12 Take On Me ») ; « Nena - 99 Luftballons » et « Love - 2
+    Become 1 » sont des titres, pas des compilations."""
+    m = re.match(r"^(.{3,45}?)\s+-\s+(0[1-9]|[1-9]\d)\s+(?=\S)", t)
+    if not m:
+        return t
+    if m.group(2).startswith("0") or len(m.group(1).split()) >= 2:
+        return t[m.end():]
+    return t
 
 
 def rv_clean_title_proposal(title, artist=""):
@@ -1775,7 +1993,6 @@ def rv_clean_title_proposal(title, artist=""):
         return m.group(0) if any(k in inner for k in _RV_KEEP_BRACKET) else " "
     t = re.sub(r"\[([^\]]*)\]", drop_bracket, t)
     t = re.sub(r"\(?(?:www\.)[^\s)]+\)?", " ", t, flags=re.I)
-    t = re.sub(r"^.{3,45}?\s+-\s+\d{1,2}\s+(?=\S)", "", t)
     if artist:
         full = artist.strip()
         prim = artist.split("/")[0].split(",")[0].strip()
@@ -1785,6 +2002,7 @@ def rv_clean_title_proposal(title, artist=""):
                 if t2 != t:
                     t = t2
                     break
+    t = _strip_compilation_prefix(t)
     t = re.sub(r"\s{2,}", " ", t).strip(" -_–")
     if len(t) >= 3 and t != (title or "").strip():
         return t
@@ -1803,7 +2021,7 @@ def rv_parse_filename(fname):
     return "", base
 
 
-# ---- genre : mapping Beatport / Discogs vers le vocabulaire de l'app ----
+# ---- genre : mapping Beatport vers le vocabulaire de l'app ----
 _ENR_BP_MAP = [
     ("hard techno", "Techno hard"), ("hardstyle", "Techno hard"),
     ("hard dance", "Techno hard"), ("hardcore", "Techno hard"),
@@ -1826,29 +2044,6 @@ _ENR_BP_MAP = [
     ("reggae", "Reggae/Dancehall"), ("pop", "Pop"),
     ("dance / electro pop", "Pop"),
 ]
-_ENR_DC_MAP = [
-    ("acid techno", "Techno acid"), ("hard techno", "Techno hard"),
-    ("hardstyle", "Techno hard"), ("hardcore", "Techno hard"),
-    ("minimal techno", "Techno mikro"), ("minimal", "Techno mikro"),
-    ("acid house", "House"), ("deep house", "House deep"),
-    ("tech house", "House tech"), ("filter house", "French touch"),
-    ("french house", "French touch"), ("disco house", "House disco"),
-    ("nu-disco", "House disco"), ("euro house", "Dance-Eurodance"),
-    ("eurodance", "Dance-Eurodance"), ("italo-dance", "Dance-Eurodance"),
-    ("progressive house", "EDM/Big room"), ("electro house", "EDM/Big room"),
-    ("big room", "EDM/Big room"), ("trance", "EDM/Big room"),
-    ("techno", "Techno"), ("house", "House"),
-    ("hip hop", "Rap/Hip-hop"), ("hip-hop", "Rap/Hip-hop"),
-    ("gangsta", "Rap/Hip-hop"), ("rnb/swing", "Rap/Hip-hop"),
-    ("reggaeton", "Latino/Reggaeton"), ("cumbia", "Latino/Reggaeton"),
-    ("dancehall", "Reggae/Dancehall"), ("reggae", "Reggae/Dancehall"),
-    ("disco", "Disco/Funk/Soul"), ("funk", "Disco/Funk/Soul"),
-    ("soul", "Disco/Funk/Soul"), ("boogie", "Disco/Funk/Soul"),
-    ("chanson", "Chanson FR"), ("synth-pop", "Pop"),
-    ("europop", "Pop"), ("pop rock", "Pop"), ("rock", "Rock"),
-]
-
-
 def _enr_map_genre(raw, table):
     raw_l = (raw or "").lower()
     if not raw_l:
@@ -1917,27 +2112,18 @@ def enr_genre_beatport(artist, title):
     a = _enr_primary_artist(artist)
     t = _enr_clean_title(title, artist)
     na, nt = _enr_norm(a), _enr_norm(t)
+    if not na or not nt:
+        return None, None
     for arts, name, g, _y in _enr_beatport_tracks(a, t):
         if g and na[:6] in _enr_norm(arts) and nt[:7] in _enr_norm(name):
             return _enr_map_genre(g, _ENR_BP_MAP), g
     return None, None
 
 
-def enr_genre_discogs(artist, title):
-    """Style Discogs mappé ; renvoie (genre_app, style_brut) ou (None, None)."""
-    a = _enr_primary_artist(artist)
-    t = _enr_clean_title(title, artist)
-    d = _enr_discogs_search(a, t)
-    if not d or not d.get("results"):
-        return None, None
-    styles = d["results"][0].get("style") or []
-    for st in styles:
-        m = _enr_map_genre(st, _ENR_DC_MAP)
-        if m:
-            return m, st
-    return None, (styles[0] if styles else None)
-
 class Core:
+    _scan_lock = _threading.Lock()     # un seul scan complet à la fois
+    _m3u_lock = _threading.Lock()      # garde de lancement du coffre M3U
+
     def __init__(self):
         self.music_folder = ""
         self.usb_root = ""
@@ -1965,30 +2151,35 @@ class Core:
         return os.path.join(d, "config.json")
 
     def _load_config(self):
+        p = self._config_path()
         try:
             import json
-            with open(self._config_path(), encoding="utf-8") as f:
+            with open(p, encoding="utf-8") as f:
                 data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("format inattendu")
             self.music_folder = (data.get("music_folder") or "").strip()
             self.usb_root = (data.get("usb_root") or "").strip()
             self.acoustid_key = (data.get("acoustid_key") or "").strip()
             self.lang = (data.get("lang") or "en").strip() or "en"
             self.last_vault_nml_hash = data.get("last_vault_nml_hash") or ""
-        except Exception:
+        except FileNotFoundError:
             pass
+        except Exception:
+            # config illisible : on la met de côté au lieu de l'écraser à la
+            # prochaine sauvegarde (dossiers, clé AcoustID…)
+            json_quarantine(p)
 
     def _save_config(self):
         try:
-            import json
             p = self._config_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump({"music_folder": self.music_folder,
-                           "usb_root": self.usb_root,
-                           "acoustid_key": self.acoustid_key,
-                           "lang": getattr(self, "lang", "en"),
-                           "last_vault_nml_hash": getattr(self, "last_vault_nml_hash", "")},
-                          f, ensure_ascii=False, indent=2)
+            json_save_atomic(p, {"music_folder": self.music_folder,
+                                 "usb_root": self.usb_root,
+                                 "acoustid_key": self.acoustid_key,
+                                 "lang": getattr(self, "lang", "en"),
+                                 "last_vault_nml_hash": getattr(self, "last_vault_nml_hash", "")},
+                             ensure_ascii=False, indent=2)
         except Exception:
             pass
 
@@ -2019,11 +2210,9 @@ class Core:
 
     def _save_acoustid_cache(self):
         try:
-            import json
             p = self._acoustid_cache_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(self._acoustid_cache, f, ensure_ascii=False)
+            json_save_atomic(p, self._acoustid_cache, ensure_ascii=False)
         except Exception:
             pass
 
@@ -2044,11 +2233,9 @@ class Core:
 
     def _save_enrich_cache(self):
         try:
-            import json
             p = self._enrich_cache_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(self._enrich_cache, f, ensure_ascii=False)
+            json_save_atomic(p, self._enrich_cache, ensure_ascii=False)
         except Exception:
             pass
 
@@ -2099,11 +2286,9 @@ class Core:
 
     def _save_audiofp_cache(self):
         try:
-            import json
             p = self._audiofp_cache_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(self._audiofp_cache, f, ensure_ascii=False)
+            json_save_atomic(p, self._audiofp_cache, ensure_ascii=False)
         except Exception:
             pass
 
@@ -2124,11 +2309,9 @@ class Core:
 
     def _save_scan_cache(self):
         try:
-            import json
             p = self._scan_cache_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(self._scan_cache, f)
+            json_save_atomic(p, self._scan_cache)
         except Exception:
             pass
 
@@ -2272,11 +2455,9 @@ class Core:
 
     def _save_backup_log(self):
         try:
-            import json
             p = self._backup_log_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(self._backup_log, f, ensure_ascii=False)
+            json_save_atomic(p, self._backup_log, ensure_ascii=False)
         except Exception:
             pass
 
@@ -2384,6 +2565,7 @@ class Core:
         total_size = sum(t.get("size", 0) or 0 for t in tracks)
         by_format = {}
         low_q = 0
+        low_list = []
         missing = 0
         for t in tracks:
             e = (t.get("ext") or "?").lower()
@@ -2391,6 +2573,9 @@ class Core:
             br = t.get("bitrate") or 0
             if e not in LOSSLESS and 0 < br < LOW_TH and br <= 1000:
                 low_q += 1
+                if len(low_list) < 500:
+                    low_list.append({"name": t.get("name", ""), "path": t.get("path", ""),
+                                     "sub": "%d kbps" % br})
             if not t.get("has_tags"):
                 missing += 1
         fmt_sorted = sorted(by_format.items(), key=lambda kv: -kv[1])
@@ -2417,6 +2602,7 @@ class Core:
             "formats_h": " · ".join("%s %d" % (k.upper(), v) for k, v in fmt_sorted[:4]),
             "n_formats": len(by_format),
             "low_quality": low_q, "low_quality_th": LOW_TH,
+            "low_quality_list": sorted(low_list, key=lambda x: x["name"].lower()),
             "missing_tags": missing,
             "integ": {"state": integ_state, "bad": integ_bad, "analyzed": integ_analyzed},
             "mismatch": {"state": ac_state, "bad": ac_mismatch, "analyzed": ac_analyzed},
@@ -2553,6 +2739,48 @@ class Core:
                                           "dossier de musique sur l'accueil."}
         return dir_entry_probe(d)
 
+    def _usb_nml_path(self):
+        usb = (self.usb_root or "").strip()
+        if not usb:
+            return None
+        mount, _vol = usb_mount_and_volume(usb)
+        p = bk_find_collection_nml(mount) or bk_find_collection_nml(usb)
+        return p if p and os.path.isfile(p) else None
+
+    def playlist_refs_check(self):
+        """Garde-fou : morceaux qui vont disparaître des playlists Traktor
+        (référence de playlist sans entrée de collection correspondante)."""
+        p = self._usb_nml_path()
+        if not p:
+            return {"ok": False, "error": "collection.nml introuvable sur la clé."}
+        refs = nml_dangling_refs(nml_read(p))
+        fixable = [(a, b) for a, b in refs if b]
+        return {"ok": True, "n_dangling": len(refs), "n_fixable": len(fixable),
+                "samples": [_xml_unescape(a).split("/:")[-1] for a, _b in refs[:20]]}
+
+    def playlist_refs_fix(self):
+        """Repointe les références cassées réparables. Sauvegarde AVANT écriture."""
+        p = self._usb_nml_path()
+        if not p:
+            return {"ok": False, "error": "collection.nml introuvable sur la clé."}
+        with NML_LOCK:
+            text = nml_read(p)
+            fixable = [(a, b) for a, b in nml_dangling_refs(text) if b]
+            if not fixable:
+                return {"ok": True, "n_fixed": 0}
+            new = text
+            n = 0
+            for a, b in fixable:
+                needle = 'KEY="%s"' % a
+                n += new.count(needle)
+                new = new.replace(needle, 'KEY="%s"' % b)
+            try:
+                bak = nml_backup_before_write(p, "playlists")
+            except Exception as e:
+                return {"ok": False, "error": "Sauvegarde de collection.nml impossible : %s" % e}
+            nml_write_atomic(p, new)
+        return {"ok": True, "n_fixed": n, "nml_backup": os.path.basename(bak)}
+
     def _list_audio_paths(self):
         d = self.music_folder
         if not (d and os.path.isdir(d)):
@@ -2571,40 +2799,54 @@ class Core:
         return out
 
     # --- scan en lots (pour barre de progression) ---
+    # Le scan construit sa liste dans un état LOCAL puis remplace self.tracks
+    # d'un bloc à la fin : un autre appel (doublons, intégrité…) lancé pendant
+    # un scan voit l'ancienne liste complète, jamais une liste à moitié vidée,
+    # et deux scans simultanés ne mélangent plus leurs compteurs.
+    def _scan_finish(self, paths, tracks):
+        tracks.sort(key=lambda t: (t["artist"].lower(), t["title"].lower()))
+        self.tracks = tracks
+        mf = self.music_folder
+        scanned = set(p for p, _ in paths)
+        self._scan_cache = {p: e for p, e in list(self._scan_cache.items())
+                            if p in scanned or not (mf and p.startswith(mf))}
+        self._save_scan_cache()
+
     def scan_begin(self):
         paths = self._list_audio_paths()
         if paths is None:
-            self._scan_paths = []
+            self._scan_job = None
             return {"ok": False, "error": "Dossier introuvable", "total": 0}
-        self._scan_paths = paths
-        self._scan_done = 0
-        self.tracks = []
+        self._scan_job = {"paths": paths, "done": 0, "tracks": []}
         return {"ok": True, "total": len(paths)}
 
     def scan_step(self, count=150):
-        paths = getattr(self, "_scan_paths", [])
-        start = getattr(self, "_scan_done", 0)
+        job = getattr(self, "_scan_job", None)
+        if not job:
+            return {"ok": False, "done": 0, "total": 0, "finished": True,
+                    "error": "scan non initialisé"}
+        paths = job["paths"]
+        start = job["done"]
         end = min(start + count, len(paths))
         for i in range(start, end):
-            self.tracks.append(self._build_track(paths[i][0], paths[i][1]))
-        self._scan_done = end
+            job["tracks"].append(self._build_track(paths[i][0], paths[i][1]))
+        job["done"] = end
         finished = end >= len(paths)
-        if finished:
-            self.tracks.sort(key=lambda t: (t["artist"].lower(), t["title"].lower()))
-            mf = self.music_folder
-            scanned = set(p for p, _ in paths)
-            self._scan_cache = {p: e for p, e in self._scan_cache.items()
-                                if p in scanned or not (mf and p.startswith(mf))}
-            self._save_scan_cache()
+        if finished and job.get("tracks") is not None:
+            self._scan_finish(paths, job["tracks"])
+            job["tracks"] = None                 # déjà publié
         return {"done": end, "total": len(paths), "finished": finished}
 
     def scan_library(self):
-        begin = self.scan_begin()
-        if not begin.get("ok"):
-            return {"ok": False, "error": begin.get("error", ""), "tracks": [], "count": 0}
-        while not self.scan_step(500)["finished"]:
-            pass
-        return {"ok": True, "count": len(self.tracks), "tracks": self.tracks}
+        """Scan complet synchrone (utilisé en interne). Sérialisé : deux
+        appels simultanés ne font pas deux fois le travail en parallèle."""
+        with self._scan_lock:
+            paths = self._list_audio_paths()
+            if paths is None:
+                return {"ok": False, "error": "Dossier introuvable", "tracks": [], "count": 0}
+            tracks = [self._build_track(p, n) for p, n in paths]
+            self._scan_finish(paths, tracks)
+            return {"ok": True, "count": len(tracks), "tracks": tracks}
 
     def _read_tags(self, path):
         """artist/title BRUTS (par format, comme le Tkinter) + bitrate/durée."""
@@ -2624,7 +2866,7 @@ class Core:
         return info
 
     # ----- doublons (porté du Tkinter : detect_duplicates + select_master) -----
-    def find_duplicates(self):
+    def find_duplicates(self, store=True):
         # toujours re-scanner : détecte les fichiers ajoutés/retirés depuis
         # le dernier scan (le cache de tags garde l'opération rapide)
         res = self.scan_library()
@@ -2658,7 +2900,11 @@ class Core:
             })
 
         dups.sort(key=lambda g: (g["artist"].lower(), g["title"].lower()))
-        self._last_dup_groups = dups
+        if store:
+            # seuls les groupes AFFICHÉS dans l'onglet Doublons sont mémorisés
+            # pour la correction ; le comptage de l'accueil (store=False) ne
+            # doit pas écraser tes choix de version à garder
+            self._last_dup_groups = dups
         return {"ok": True, "groups": dups, "n_groups": len(dups)}
 
     # ----- résolution des doublons (repointage playlists + backup réversible) -----
@@ -2689,15 +2935,15 @@ class Core:
             if pl.get("name") == ORPHANS_PLAYLIST_NAME:
                 continue   # notre playlist de tri ne compte pas comme classement
             for rel in pl.get("tracks", []):
-                base = os.path.basename(rel).lower()
+                base = os.path.basename(rel)
                 if base:
-                    in_pl.add(base)
+                    in_pl.add(path_key(base))     # NFC + casse : macOS lit du NFD
         res = self.scan_library()   # re-scan frais : prend en compte les fichiers ajoutés
         if not res.get("ok"):
             return {"ok": False, "error": res.get("error", "Scan impossible")}
         orphans = [{"name": t["name"], "path": t["path"]}
                    for t in self.tracks
-                   if os.path.basename(t["path"]).lower() not in in_pl]
+                   if path_key(os.path.basename(t["path"])) not in in_pl]
         orphans.sort(key=lambda x: x["name"].lower())
         self._last_orphans = orphans
         return {"ok": True, "n_playlists": len(playlists),
@@ -2707,7 +2953,7 @@ class Core:
     def set_dup_master(self, path):
         """Choix manuel du master : dans le groupe contenant `path`, marque cette
         version comme celle à garder (keep=True) et les autres à False."""
-        for g in getattr(self, "_last_dup_groups", []):
+        for g in getattr(self, "_last_dup_groups", None) or []:
             vers = g.get("versions", [])
             if any(v.get("path") == path for v in vers):
                 for v in vers:
@@ -2743,35 +2989,41 @@ class Core:
             master_choices[key] = master["path"]
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = os.path.join(usb, "_doublons_backup_%s" % ts)
-        try:
-            with open(nml_path, encoding="utf-8") as f:
-                nml_text = f.read()
-        except Exception as e:
-            return {"ok": False, "error": "Lecture collection.nml impossible : %s" % e}
-        try:
-            nml_bak = nml_backup_before_write(nml_path, "doublons")
-        except Exception as e:
-            return {"ok": False, "error": "Sauvegarde collection.nml impossible : %s" % e}
-        new_text, stats = fix_duplicates_via_playlists(
-            nml_text, mount, volume, groups, master_choices, backup_dir, usb)
-        try:
-            tmp = nml_path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write(new_text)
-            os.replace(tmp, nml_path)
-        except Exception as e:
-            return {"ok": False, "error": "Écriture collection.nml impossible : %s" % e}
-        self.tracks = []  # fichiers déplacés : forcer un vrai re-scan disque au prochain appel
-        return {"ok": True, "n_repointed": stats["n_repointed"], "n_moved": stats["n_moved"],
-                "n_groups": stats["n_groups"], "nml_backup": os.path.basename(nml_bak),
-                "backup_dir": os.path.basename(backup_dir)}
+        with NML_LOCK:
+            try:
+                nml_text = nml_read(nml_path)
+            except Exception as e:
+                return {"ok": False, "error": "Lecture collection.nml impossible : %s" % e}
+            new_text, stats = fix_duplicates_via_playlists(
+                nml_text, mount, volume, groups, master_choices, backup_dir, usb)
+            nml_bak = ""
+            if new_text != nml_text:
+                try:
+                    nml_bak = nml_backup_before_write(nml_path, "doublons")
+                except Exception as e:
+                    return {"ok": False, "error": "Sauvegarde collection.nml impossible : %s" % e}
+                try:
+                    nml_write_atomic(nml_path, new_text)
+                except Exception as e:
+                    return {"ok": False, "error": "Écriture collection.nml impossible, aucun "
+                                                  "fichier n'a été déplacé : %s" % e}
+        # nml à jour : les playlists pointent vers la version gardée. Seulement
+        # maintenant, on met les copies de côté (un échec laisse une copie en
+        # place, sans casser aucune playlist).
+        moved, failed = move_dup_copies(stats["to_move"], backup_dir, usb)
+        self._last_dup_groups = []            # groupes périmés : rescan obligatoire
+        self.tracks = []
+        return {"ok": True, "n_repointed": stats["n_repointed"], "n_moved": len(moved),
+                "n_failed": len(failed), "n_kept_back": len(stats["kept_back"]),
+                "notes": stats["notes"], "n_groups": stats["n_groups"],
+                "nml_backup": os.path.basename(nml_bak),
+                "backup_dir": os.path.basename(backup_dir) if moved else ""}
 
 
     def orphans_to_traktor(self):
         """Crée/régénère la playlist « À CLASSER » dans collection.nml avec les
         morceaux hors playlist, pour les classer par glisser-déposer dans
         Traktor. Traktor doit être FERMÉ. Sauvegarde du .nml faite avant."""
-        import unicodedata, datetime, uuid
         res = self.orphan_tracks()
         if not res.get("ok"):
             return res
@@ -2781,9 +3033,13 @@ class Core:
         nml_path = bk_find_collection_nml(mount) or bk_find_collection_nml(usb)
         if not nml_path:
             return {"ok": False, "error": "collection.nml introuvable sur la clé."}
+        with NML_LOCK:
+            return self._orphans_write(nml_path, orphans, mount, volume)
+
+    def _orphans_write(self, nml_path, orphans, mount, volume):
+        import unicodedata, uuid
         try:
-            with open(nml_path, encoding="utf-8") as f:
-                nml_text = f.read()
+            nml_text = nml_read(nml_path)
         except Exception as e:
             return {"ok": False, "error": "Lecture collection.nml impossible : %s" % e}
         idx = nml_index_locations_any(nml_text)
@@ -2828,16 +3084,15 @@ class Core:
         if new_text == nml_text:
             return {"ok": True, "added": len(keys), "skipped": skipped,
                     "existed": existed, "unchanged": True, "playlist": ORPHANS_PLAYLIST_NAME}
-        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         try:
             nml_bak = nml_backup_before_write(nml_path, "orphelins")
         except Exception as e:
             return {"ok": False, "error": "Sauvegarde de collection.nml impossible : %s" % e}
         try:
-            with open(nml_path, "w", encoding="utf-8") as f:
-                f.write(new_text)
+            nml_write_atomic(nml_path, new_text)
         except Exception as e:
-            return {"ok": False, "error": "Écriture collection.nml impossible : %s" % e}
+            return {"ok": False, "error": "Écriture collection.nml impossible (rien n'a été "
+                                          "modifié) : %s" % e}
         return {"ok": True, "added": len(keys), "skipped": skipped, "existed": existed,
                 "backup": os.path.basename(nml_bak), "playlist": ORPHANS_PLAYLIST_NAME}
 
@@ -2872,7 +3127,7 @@ class Core:
         res = restore_from_backup(backups[0], usb)
         self.tracks = []  # fichiers restaurés : forcer un vrai re-scan disque
         return {"ok": True, "n_restored": res["n_restored"], "n_failed": res["n_failed"],
-                "backup_dir": os.path.basename(backups[0])}
+                "n_conflict": res["n_conflict"], "backup_dir": os.path.basename(backups[0])}
 
     def clean_dup_backups(self):
         """Supprime tous les backups de doublons (libère l'espace, irréversible)."""
@@ -3071,43 +3326,6 @@ class Core:
         return {"ok": True, "groups": groups, "n_groups": len(groups)}
 
     # ----- intégrité (lecture seule) : mode rapide ou approfondi (ffmpeg) -----
-    def check_integrity(self, mode="quick"):
-        if True:
-            res = self.scan_library()   # re-scan frais
-            if not res.get("ok"):
-                return {"ok": False, "error": res.get("error", "Scan impossible"),
-                        "items": [], "n": 0, "n_critical": 0, "n_warning": 0, "total": 0}
-
-        ffmpeg = None
-        if mode == "deep":
-            ffmpeg = find_ffmpeg()
-            if not ffmpeg:
-                return {"ok": False,
-                        "error": "ffmpeg introuvable — installe-le depuis la carte Configuration "
-                                 "(accueil) pour l'analyse approfondie.",
-                        "items": [], "n": 0, "n_critical": 0, "n_warning": 0, "total": 0}
-
-        items = []
-        for t in self.tracks:
-            if mode == "deep":
-                r = deep_integrity_check(t["path"], ffmpeg, check_clipping=True)
-            else:
-                r = quick_integrity_check(t["path"])
-            if r["severity"] != "ok":
-                items.append({
-                    "name": t["name"],
-                    "path": t["path"],
-                    "ext": t["ext"],
-                    "severity": r["severity"],
-                    "errors": r["errors"],
-                })
-        order = {"critical": 0, "warning": 1}
-        items.sort(key=lambda x: (order.get(x["severity"], 2), x["name"].lower()))
-        n_crit = sum(1 for i in items if i["severity"] == "critical")
-        n_warn = sum(1 for i in items if i["severity"] == "warning")
-        return {"ok": True, "items": items, "n": len(items),
-                "n_critical": n_crit, "n_warning": n_warn, "total": len(self.tracks)}
-
     # --- intégrité en lots (barre de progression) ---
     def integ_begin(self, mode="quick", workers=4):
         res = self.scan_library()   # re-scan frais : prend les fichiers ajoutés
@@ -3216,11 +3434,9 @@ class Core:
 
     def _save_integ_cache(self):
         try:
-            import json
             p = self._integ_cache_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(self._integ_cache, f, ensure_ascii=False)
+            json_save_atomic(p, self._integ_cache, ensure_ascii=False)
         except Exception:
             pass
 
@@ -3265,7 +3481,7 @@ class Core:
         except Exception:
             rel = path
         ent = self._acoustid_cache.get(rel)
-        if not ent:
+        if not ent or ent.get("verdict") == "error":
             return None
         try:
             if ent.get("size") != os.path.getsize(path):
@@ -3312,6 +3528,7 @@ class Core:
         self._ac_i = 0
         self._ac_mismatches = []
         self._ac_match = self._ac_unident = self._ac_error = 0
+        self._ac_lists = {"unident": [], "errors": []}
         return {"ok": True, "total": len(paths)}
 
     def acoustid_step(self, count=3):
@@ -3340,7 +3557,11 @@ class Core:
                         res = {"verdict": v, "tag_artist": artist or "", "id_artist": ia,
                                "id_title": it, "score": round(top, 2), "error": ""}
                     time.sleep(0.34)  # limite AcoustID : 3 requêtes/seconde
-                self._acoustid_store(p, res)
+                if res.get("verdict") != "error":
+                    # une erreur (réseau, quota, fpcalc) n'est pas un verdict :
+                    # la mettre en cache la figeait jusqu'au prochain changement
+                    # de taille du fichier
+                    self._acoustid_store(p, res)
             v = res.get("verdict")
             if v == "mismatch":
                 self._ac_mismatches.append({
@@ -3352,8 +3573,12 @@ class Core:
                 self._ac_match += 1
             elif v == "error":
                 self._ac_error += 1
+                self._ac_lists["errors"].append({"name": os.path.basename(p), "path": p,
+                                                 "sub": res.get("error", "")})
             else:
                 self._ac_unident += 1
+                self._ac_lists["unident"].append({"name": os.path.basename(p), "path": p,
+                                                  "sub": ""})
         self._ac_i = end
         finished = end >= len(paths)
         result = None
@@ -3362,6 +3587,8 @@ class Core:
             result = {"ok": True, "mismatches": self._ac_mismatches,
                       "n_mismatch": len(self._ac_mismatches), "n_match": self._ac_match,
                       "n_unident": self._ac_unident, "n_error": self._ac_error,
+                      "unident": self._ac_lists["unident"][:500],
+                      "errors": self._ac_lists["errors"][:500],
                       "total": len(paths)}
         return {"done": end, "total": len(paths), "finished": finished, "result": result}
 
@@ -3655,6 +3882,10 @@ class Core:
         for src in (paths or []):
             if not src or not os.path.isfile(src):
                 continue
+            # uniquement des fichiers du dossier d'import (hors _DOUBLONS)
+            if not path_inside(src, folder) or path_inside(src, dest):
+                errors.append("%s : hors du dossier d'import, ignoré" % os.path.basename(src))
+                continue
             base = os.path.basename(src)
             target = os.path.join(dest, base)
             if os.path.exists(target):
@@ -3741,6 +3972,11 @@ class Core:
             for t in self.tracks:
                 for ca, ct in t.get("match_candidates", ()):
                     sc = fuzz.token_sort_ratio(q_full, ("%s %s" % (ca, ct)).strip())
+                    if ct and len(q_full) >= 6:
+                        # titre seul (« Mistral Gagnant ») : comparé au titre
+                        # seul, mais plafonné sous le seuil — sans artiste,
+                        # c'est « à vérifier », jamais « trouvé » d'office
+                        sc = max(sc, min(fuzz.token_sort_ratio(q_full, ct), threshold - 1))
                     if sc > best_score:
                         best_score, best = sc, t
             return best, int(max(best_score, 0))
@@ -3780,30 +4016,6 @@ class Core:
             else:
                 entries.append(("", line))
         return entries
-
-    def compare_playlist(self, text, threshold=85):
-        if True:
-            res = self.scan_library()   # re-scan frais
-            if not res.get("ok"):
-                return {"ok": False, "error": res.get("error", "Scan impossible"),
-                        "found": [], "review": [], "missing": [],
-                        "n_total": 0, "n_found": 0, "n_review": 0, "n_missing": 0}
-
-        review_floor = max(65, threshold - 15)
-        entries = self._parse_playlist(text)
-        found, review, missing = [], [], []
-        for a, t in entries:
-            label = (a + " - " + t) if a else t
-            local, score = self._best_match_both(a, t, threshold)
-            if local and score >= threshold:
-                found.append({"query": label, "local": local["name"], "score": score})
-            elif local and score >= review_floor:
-                review.append({"query": label, "local": local["name"], "score": score})
-            else:
-                missing.append({"query": label})
-        return {"ok": True, "n_total": len(entries),
-                "n_found": len(found), "n_review": len(review), "n_missing": len(missing),
-                "found": found, "review": review, "missing": missing}
 
     # --- comparaison playlist en lots (barre de progression) ---
     def compare_begin(self, text, threshold=85):
@@ -3884,62 +4096,83 @@ class Core:
 
     # ----- synchro : clone du dossier audio vers une clé de secours -----
     def plan_sync(self, spare):
-        """Dry-run : ce qui serait copié / supprimé pour rendre spare identique à la source."""
+        """Dry-run : ce qui serait renommé / copié / supprimé pour rendre spare
+        identique à la source. Les noms sont rapprochés sans tenir compte de la
+        casse ni de la forme Unicode : sur FAT32, « song.mp3 » et « Song.mp3 »
+        sont le même fichier ; copier l'un puis supprimer l'autre effacerait le
+        morceau. Ces cas deviennent de simples renommages."""
         master = self._sync_source()
         if not (master and os.path.isdir(master)):
             return {"ok": False, "error": "Source introuvable"}
         if not spare or not os.path.isdir(spare):
             return {"ok": False, "error": "Clé de secours introuvable"}
-        if os.path.abspath(spare) == os.path.abspath(master):
-            return {"ok": False, "error": "La clé de secours doit être différente du dossier principal"}
+        if paths_overlap(spare, master):
+            return {"ok": False, "error": "La clé de secours ne peut être ni le dossier principal, "
+                                          "ni un dossier à l'intérieur, ni le contenir."}
+        import unicodedata
         idx_m = bk_index(master)
         idx_s = bk_index(spare)
-        to_copy, copy_bytes = [], 0
+        s_by_key = {}
+        for rel in idx_s:
+            s_by_key.setdefault(path_key(rel), []).append(rel)
+        to_copy, to_rename, copy_bytes = [], [], 0
+        matched = set()
         for rel, meta_m in idx_m.items():
-            meta_s = idx_s.get(rel)
-            if meta_s is None or bk_differs(meta_m, meta_s):
+            cands = s_by_key.get(path_key(rel), [])
+            rel_s = rel if rel in cands else (cands[0] if cands else None)
+            if rel_s is not None:
+                matched.add(rel_s)
+                # seule la CASSE justifie un renommage : un écart NFC/NFD seul
+                # est le même nom affiché, et certains pilotes (FAT sur macOS)
+                # renormalisent à l'écriture — on bouclerait à chaque synchro
+                # Seul le NOM DE FICHIER est renommé : un dossier qui ne diffère
+                # que par la casse ne peut pas être renommé fichier par fichier
+                # sur FAT32 (on rebouclerait à chaque synchro) ; il est
+                # simplement considéré comme identique.
+                if (unicodedata.normalize("NFC", rel_s) != unicodedata.normalize("NFC", rel)
+                        and os.path.dirname(rel_s) == os.path.dirname(rel)):
+                    to_rename.append([rel_s, rel])
+            if rel_s is None or bk_differs(meta_m, idx_s[rel_s]):
                 to_copy.append(rel)
                 copy_bytes += meta_m[0]
-        to_delete = [rel for rel in idx_s if rel not in idx_m]
+        to_delete = [rel for rel in idx_s if rel not in matched]
         return {"ok": True, "spare": spare,
                 "to_copy": sorted(to_copy), "to_delete": sorted(to_delete),
-                "n_copy": len(to_copy), "n_delete": len(to_delete),
+                "to_rename": sorted(to_rename),
+                "n_copy": len(to_copy), "n_delete": len(to_delete), "n_rename": len(to_rename),
                 "copy_bytes": copy_bytes, "copy_h": human_size(copy_bytes)}
 
-    def apply_sync(self, spare):
-        """Applique le clone (copie + suppression). Action destructive sur la spare."""
-        master = self._sync_source()
-        plan = self.plan_sync(spare)
-        if not plan.get("ok"):
-            return plan
-        n_copied = n_deleted = n_failed = 0
-        for rel in plan["to_copy"]:
-            try:
-                bk_copy(os.path.join(master, rel), os.path.join(spare, rel))
-                n_copied += 1
-            except Exception:
-                n_failed += 1
-        for rel in plan["to_delete"]:
-            try:
-                os.unlink(os.path.join(spare, rel))
-                n_deleted += 1
-            except OSError:
-                n_failed += 1
-        for dirpath, dirnames, filenames in os.walk(spare, topdown=False):
-            if os.path.abspath(dirpath) == os.path.abspath(spare):
-                continue
-            try:
-                if not os.listdir(dirpath):
-                    os.rmdir(dirpath)
-            except OSError:
-                pass
-        return {"ok": True, "n_copied": n_copied, "n_deleted": n_deleted, "n_failed": n_failed}
+    @staticmethod
+    def _rename_case_safe(old, new):
+        """Renomme old -> new, y compris quand seuls la casse ou l'encodage
+        changent (FAT32/macOS) : passage par un nom temporaire."""
+        os.makedirs(os.path.dirname(new), exist_ok=True)
+        tmp = os.path.join(os.path.dirname(old), ".djh_tmp_%d" % os.getpid())
+        os.rename(old, tmp)
+        try:
+            os.rename(tmp, new)
+        except OSError:
+            os.rename(tmp, old)
+            raise
 
     # --- synchro en lots (barre de progression) ---
     def sync_apply_begin(self, spare):
         plan = self.plan_sync(spare)
         if not plan.get("ok"):
             return plan
+        # renommages de casse/encodage d'abord (rapides), pour que les copies
+        # et suppressions qui suivent visent les bons noms
+        n_ren_fail = 0
+        for old_rel, new_rel in plan.get("to_rename", []):
+            try:
+                self._rename_case_safe(os.path.join(spare, old_rel), os.path.join(spare, new_rel))
+            except OSError:
+                n_ren_fail += 1
+        if n_ren_fail:
+            return {"ok": False, "error": "%d renommage(s) impossible(s) sur la clé de secours : "
+                                          "synchro annulée, rien n'a été copié ni supprimé."
+                                          % n_ren_fail}
+        self._sync_renamed = len(plan.get("to_rename", []))
         self._sync_spare = spare
         self._sync_copy = plan["to_copy"]
         self._sync_delete = plan["to_delete"]
@@ -3982,7 +4215,8 @@ class Core:
                 except OSError:
                     pass
             result = {"ok": True, "n_copied": self._sync_copied,
-                      "n_deleted": self._sync_deleted, "n_failed": self._sync_failed}
+                      "n_deleted": self._sync_deleted, "n_failed": self._sync_failed,
+                      "n_renamed": getattr(self, "_sync_renamed", 0)}
             self._backup_log_record("spare")
         return {"done": end, "total": ncopy + ndel, "finished": finished, "result": result}
 
@@ -3995,12 +4229,10 @@ class Core:
                     "error": "Source introuvable (définis le dossier ou la clé)."}
         if not dest:
             return {"ok": False, "total": 0, "error": "Choisis un dossier de sauvegarde."}
-        try:
-            if os.path.realpath(dest) == os.path.realpath(src):
-                return {"ok": False, "total": 0,
-                        "error": "La destination ne peut pas être la source."}
-        except Exception:
-            pass
+        if paths_overlap(dest, src):
+            return {"ok": False, "total": 0,
+                    "error": "La destination ne peut être ni la source, ni un dossier à "
+                             "l'intérieur, ni la contenir."}
         os.makedirs(dest, exist_ok=True)
         hardlink = bk_supports_hardlinks(dest)
         idx_m = bk_index(src)
@@ -4033,48 +4265,57 @@ class Core:
         self._fb_total = len(self._fb_items) + len(self._fb_extra)
         return {"ok": True, "total": self._fb_total, "mode": self._fb_mode}
 
+    def _fb_one(self, i, nm, rel):
+        if i < nm:
+            meta_m = self._fb_items[i][1]
+            if self._fb_mode == "hardlink":
+                dst = os.path.join(self._fb_snap, rel)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                pm = self._fb_prev_index.get(rel)
+                if self._fb_prev and pm is not None and not bk_differs(meta_m, pm):
+                    try:
+                        os.link(os.path.join(self._fb_prev, rel), dst)
+                        self._fb_linked += 1
+                        return
+                    except OSError:
+                        pass
+                bk_copy(os.path.join(self._fb_src, rel), dst)
+                self._fb_copied += 1
+            else:
+                meta_c = self._fb_idx_c.get(rel)
+                if meta_c is None or bk_differs(meta_m, meta_c):
+                    if meta_c is not None:
+                        # l'ancienne version part en archive AVANT d'être
+                        # écrasée ; si l'archivage échoue, on n'écrase pas
+                        bk_copy(os.path.join(self._fb_current, rel),
+                                os.path.join(self._fb_archive, rel))
+                        self._fb_archived += 1
+                    bk_copy(os.path.join(self._fb_src, rel),
+                            os.path.join(self._fb_current, rel))
+                    self._fb_copied += 1
+        else:
+            bk_copy(os.path.join(self._fb_current, rel),
+                    os.path.join(self._fb_archive, rel))
+            self._fb_archived += 1
+            os.unlink(os.path.join(self._fb_current, rel))
+
     def full_backup_step(self, count=40):
         items = self._fb_items
         nm = len(items)
         extra = self._fb_extra
         total = nm + len(extra)
         end = min(self._fb_i + count, total)
+        if not hasattr(self, "_fb_failed") or self._fb_i == 0:
+            self._fb_failed = []
         for i in range(self._fb_i, end):
-            if i < nm:
-                rel, meta_m = items[i]
-                if self._fb_mode == "hardlink":
-                    dst = os.path.join(self._fb_snap, rel)
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    pm = self._fb_prev_index.get(rel)
-                    if self._fb_prev and pm is not None and not bk_differs(meta_m, pm):
-                        try:
-                            os.link(os.path.join(self._fb_prev, rel), dst)
-                            self._fb_linked += 1
-                        except OSError:
-                            bk_copy(os.path.join(self._fb_src, rel), dst)
-                            self._fb_copied += 1
-                    else:
-                        bk_copy(os.path.join(self._fb_src, rel), dst)
-                        self._fb_copied += 1
-                else:
-                    meta_c = self._fb_idx_c.get(rel)
-                    if meta_c is None or bk_differs(meta_m, meta_c):
-                        if meta_c is not None:
-                            bk_copy(os.path.join(self._fb_current, rel),
-                                    os.path.join(self._fb_archive, rel))
-                            self._fb_archived += 1
-                        bk_copy(os.path.join(self._fb_src, rel),
-                                os.path.join(self._fb_current, rel))
-                        self._fb_copied += 1
-            else:
-                rel = extra[i - nm]
-                bk_copy(os.path.join(self._fb_current, rel),
-                        os.path.join(self._fb_archive, rel))
-                self._fb_archived += 1
-                try:
-                    os.unlink(os.path.join(self._fb_current, rel))
-                except OSError:
-                    pass
+            # un fichier en échec (disparu, nom refusé par le disque cible,
+            # disque plein) est compté et signalé : il n'interrompt pas la
+            # sauvegarde des autres
+            rel = items[i][0] if i < nm else extra[i - nm]
+            try:
+                self._fb_one(i, nm, rel)
+            except Exception as e:
+                self._fb_failed.append("%s — %s" % (rel, str(e)[:120]))
         self._fb_i = end
         finished = end >= total
         result = None
@@ -4100,7 +4341,12 @@ class Core:
                 result = {"ok": True, "mode": "hardlink", "snapshot": self._fb_snap,
                           "copied": self._fb_copied, "linked": self._fb_linked,
                           "total": nm}
-            self._backup_log_record("full")
+            result["n_failed"] = len(self._fb_failed)
+            result["failed"] = self._fb_failed[:50]
+            if not self._fb_failed:
+                # une sauvegarde incomplète ne remet pas le compteur « dernière
+                # sauvegarde » à zéro
+                self._backup_log_record("full")
         return {"done": end, "total": total, "finished": finished, "result": result}
 
     # --- sauvegarde de structure (manifeste + collection.nml) ---
@@ -4134,7 +4380,7 @@ class Core:
         return {"ok": True, "total": len(paths), "out_dir": out}
 
     def export_structure_step(self, count=80):
-        import json, csv, datetime
+        import json, csv
         src = self._struct_src
         paths = self._struct_paths
         start = self._struct_idx
@@ -4155,7 +4401,7 @@ class Core:
                 size = 0
             self._struct_entries.append({
                 "rel_path": rel, "artist": artist, "title": title,
-                "size": size, "duration": round(tags["duration"], 1),
+                "size": size, "duration": round(tags.get("duration") or 0, 1),
                 "folder": os.path.dirname(rel)})
         self._struct_idx = end
         finished = end >= len(paths)
@@ -4194,9 +4440,24 @@ class Core:
 
     # --- coffre-fort de playlists : export M3U miroir de collection.nml ---
     def m3u_begin(self):
+        import time
+        # test-et-pose atomique : deux clics rapides lançaient deux générations
+        with self._m3u_lock:
+            if self.m3u_busy():
+                return {"ok": False, "error": "Génération déjà en cours…", "total": 0}
+            self._m3u_running = True
+            self._m3u_beat = time.time()
+        try:
+            res = self._m3u_begin()
+        except Exception:
+            self._m3u_running = False
+            raise
+        if not res.get("ok"):
+            self._m3u_running = False
+        return res
+
+    def _m3u_begin(self):
         import json, datetime, shutil as _sh
-        if getattr(self, "_m3u_running", False):
-            return {"ok": False, "error": "Génération déjà en cours…", "total": 0}
         root = self._sync_source()
         if not (root and os.path.isdir(root)):
             return {"ok": False, "error": "Source introuvable. Définis la racine de la clé.", "total": 0}
@@ -4241,7 +4502,8 @@ class Core:
         self._m3u_meta = {}
         self._m3u_old_manifest = old_manifest
         self._m3u_nml_backup = nml_backup
-        self._m3u_running = True
+        self._m3u_taken = set()
+        self._m3u_failed = []
         return {"ok": True, "total": len(playlists)}
 
     def _m3u_get_meta(self, rel):
@@ -4262,8 +4524,26 @@ class Core:
         self._m3u_meta[rel] = (dur, artist, title)
         return self._m3u_meta[rel]
 
+    def m3u_busy(self):
+        """Génération réellement en cours (lot traité il y a < 60 s). Une
+        boucle JS interrompue (rechargement) ne bloque plus la fermeture."""
+        import time
+        return bool(getattr(self, "_m3u_running", False)
+                    and time.time() - getattr(self, "_m3u_beat", 0) < 60)
+
     def m3u_step(self, count=8):
-        import json, unicodedata
+        import time
+        self._m3u_beat = time.time()
+        # quoi qu'il arrive, une erreur libère le verrou « génération en
+        # cours » : sinon la fermeture de l'app restait bloquée
+        try:
+            return self._m3u_step(count)
+        except Exception:
+            self._m3u_running = False
+            raise
+
+    def _m3u_step(self, count=8):
+        import time, unicodedata
         root = self._m3u_root_src
         m3u_root = self._m3u_root
         playlists = self._m3u_playlists
@@ -4271,11 +4551,21 @@ class Core:
         end = min(start + count, len(playlists))
         for i in range(start, end):
             pl = playlists[i]
+            self._m3u_beat = time.time()      # battement par playlist (clé lente)
             folders = [_bk_safe_name(x) for x in pl["folders"]]
             pl_dir = os.path.join(m3u_root, *folders) if folders else m3u_root
-            os.makedirs(pl_dir, exist_ok=True)
-            m3u_file = os.path.join(pl_dir, _bk_safe_name(pl["name"]) + ".m3u")
+            base = _bk_safe_name(pl["name"])
+            m3u_file = os.path.join(pl_dir, base + ".m3u")
             rel_key = os.path.relpath(m3u_file, m3u_root).replace(os.sep, "/")
+            # deux playlists au même nom une fois nettoyé (« A/B » et « A:B »)
+            # ou ne différant que par la casse : sur FAT32 c'est le même
+            # fichier, la seconde écrasait la première
+            k = 2
+            while path_key(rel_key) in self._m3u_taken:
+                m3u_file = os.path.join(pl_dir, "%s (%d).m3u" % (base, k))
+                rel_key = os.path.relpath(m3u_file, m3u_root).replace(os.sep, "/")
+                k += 1
+            self._m3u_taken.add(path_key(rel_key))
             self._m3u_produced.add(rel_key)
             lines = ["#EXTM3U"]
             for rel in pl["tracks"]:
@@ -4285,9 +4575,13 @@ class Core:
                 lines.append(abs_p)
                 if not os.path.exists(abs_p):
                     self._m3u_missing += 1
-            with open(m3u_file, "w", encoding="utf-8-sig") as f:
-                f.write("\n".join(lines) + "\n")
-            self._m3u_written += 1
+            try:
+                os.makedirs(pl_dir, exist_ok=True)
+                with open(m3u_file, "w", encoding="utf-8-sig") as f:
+                    f.write("\n".join(lines) + "\n")
+                self._m3u_written += 1
+            except OSError as e:
+                self._m3u_failed.append("%s — %s" % (rel_key, str(e)[:100]))
         self._m3u_idx = end
         finished = end >= len(playlists)
         result = None
@@ -4303,9 +4597,15 @@ class Core:
             # Nettoyage absolu : le dossier M3U appartient au coffre-fort. Tout
             # .m3u qui ne correspond plus à une playlist actuelle est supprimé
             # (couvre aussi les fichiers antérieurs au manifest).
-            produced_norm = {unicodedata.normalize("NFC", x) for x in produced}
+            # comparaison sans casse ni forme Unicode : sur FAT32, écrire
+            # « Techno.m3u » par-dessus « techno.m3u » garde l'ancien nom ;
+            # une comparaison stricte supprimait la playlist qu'on venait
+            # d'écrire
+            produced_norm = {path_key(x) for x in produced}
             n_orphans = 0
-            for dirpath, dirnames, filenames in os.walk(m3u_root):
+            # 0 playlist lue = nml anormal : on ne vide pas le coffre-fort
+            walk_root = m3u_root if playlists else os.path.join(m3u_root, "_absent_")
+            for dirpath, dirnames, filenames in os.walk(walk_root):
                 parts = dirpath.split(os.sep)
                 if "_nml_backup" in parts or "IMPORTS" in parts:
                     continue
@@ -4313,8 +4613,7 @@ class Core:
                     if not fn.endswith(".m3u"):
                         continue
                     full = os.path.join(dirpath, fn)
-                    rel = unicodedata.normalize(
-                        "NFC", os.path.relpath(full, m3u_root).replace(os.sep, "/"))
+                    rel = path_key(os.path.relpath(full, m3u_root).replace(os.sep, "/"))
                     if rel not in produced_norm:
                         try:
                             os.unlink(full)
@@ -4333,13 +4632,13 @@ class Core:
                 except OSError:
                     pass
             try:
-                with open(os.path.join(m3u_root, ".vault_manifest.json"), "w",
-                          encoding="utf-8") as f:
-                    json.dump(sorted(unicodedata.normalize("NFC", x) for x in produced),
-                              f, ensure_ascii=False)
+                json_save_atomic(os.path.join(m3u_root, ".vault_manifest.json"),
+                                 sorted(unicodedata.normalize("NFC", x) for x in produced),
+                                 ensure_ascii=False)
             except OSError:
                 pass
             result = {"ok": True, "playlists": self._m3u_written,
+                      "n_failed": len(self._m3u_failed), "failed": self._m3u_failed[:50],
                       "missing": self._m3u_missing, "orphans": n_orphans,
                       "nml_backup": self._m3u_nml_backup, "m3u_root": m3u_root}
             self._m3u_running = False
@@ -4381,6 +4680,7 @@ class Core:
         self._rn_rows = []
         self._rn_already = 0
         self._rn_notags = 0
+        self._rn_notags_list = []
         self._rn_seen = {}
         return {"ok": True, "total": len(paths), "has_nml": bool(nml_path)}
 
@@ -4397,6 +4697,8 @@ class Core:
             artist, title = tags["artist"], tags["title"]
             if not (artist or title):
                 self._rn_notags += 1
+                if len(self._rn_notags_list) < 500:
+                    self._rn_notags_list.append({"name": name, "path": p, "sub": ""})
                 continue
             new = build_track_filename(artist, title, ext)
             # Clé FAT32/exFAT et APFS par défaut : insensibles à la casse. Un nom
@@ -4412,10 +4714,10 @@ class Core:
             taken = self._rn_seen.setdefault(d, set())
             base, e = os.path.splitext(new)
             cand, k = new, 2
-            while cand.lower() in taken:
+            while path_key(cand) in taken:
                 cand = "%s (%d)%s" % (base, k, e)
                 k += 1
-            taken.add(cand.lower())
+            taken.add(path_key(cand))
             new = cand
             try:
                 dir_t = physical_to_nml_dir(p, self._rn_mount)
@@ -4440,6 +4742,7 @@ class Core:
         if finished:
             result = {"ok": True, "rows": self._rn_rows, "n_rename": len(self._rn_rows),
                       "n_already": self._rn_already, "n_no_tags": self._rn_notags,
+                      "no_tags": self._rn_notags_list,
                       "has_nml": bool(self._rn_nml_path)}
         return {"done": end, "total": len(paths), "finished": finished, "result": result}
 
@@ -4447,80 +4750,121 @@ class Core:
         if not selection:
             return {"ok": False, "error": "Aucune ligne sélectionnée", "total": 0}
         audio, mount, volume, nml_path = self._rename_setup()
-        nml_text = None
         nml_backup = None
-        if nml_path and os.path.isfile(nml_path):
+        has_nml = bool(nml_path and os.path.isfile(nml_path))
+        if has_nml:
+            # filet de sécurité AVANT toute écriture du nml : s'il saute, on
+            # ne renomme rien
             try:
                 nml_backup = nml_backup_before_write(nml_path, "renommage")
-                with open(nml_path, encoding="utf-8", newline="") as f:
-                    nml_text = f.read()
             except Exception as e:
                 return {"ok": False, "error": "Sauvegarde de collection.nml impossible : %s" % e,
                         "total": 0}
         self._ra_sel = selection
-        self._ra_volume = volume
-        self._ra_nml_path = nml_path
-        self._ra_nml_text = nml_text
+        self._ra_mount = mount
+        self._ra_nml_path = nml_path if has_nml else None
         self._ra_nml_backup = nml_backup
         self._ra_i = 0
-        self._ra_ok = self._ra_fail = self._ra_nmlupd = 0
+        self._ra_ok = self._ra_fail = self._ra_nmlupd = self._ra_refs = 0
+        self._ra_not_in_nml = 0
+        self._ra_errors = []
         return {"ok": True, "total": len(selection), "nml_backup": nml_backup}
 
+    def _ra_rename_one(self, p, target):
+        """Renomme p -> target ; casse/forme Unicode seules : via un nom
+        temporaire, remis en place si la 2e étape échoue. Lève OSError."""
+        same = False
+        if os.path.exists(target):
+            try:
+                same = os.path.samefile(p, target)
+            except OSError:
+                same = False
+            if not same:
+                raise OSError("un fichier porte déjà ce nom")
+        if same:
+            # nom temporaire court : « nom long + .djh_tmp » pouvait dépasser 255
+            tmp = os.path.join(os.path.dirname(p), ".djh_tmp_%d" % os.getpid())
+            os.rename(p, tmp)
+            try:
+                os.rename(tmp, target)
+            except OSError:
+                os.rename(tmp, p)
+                raise
+        else:
+            os.rename(p, target)
+
     def rename_apply_step(self, count=40):
+        import unicodedata
+        nfc = lambda x: unicodedata.normalize("NFC", x)
         sel = self._ra_sel
         start = self._ra_i
         end = min(start + count, len(sel))
+        done = []                                   # (ancien chemin, nouveau chemin)
         for i in range(start, end):
             data = sel[i]
             p = data["path"]
             new_name = data["new_name"]
-            target = os.path.join(os.path.dirname(p), new_name)
-            same = False
-            if os.path.exists(target):
-                try:
-                    same = os.path.samefile(p, target)
-                except OSError:
-                    same = False
-                if not same:
-                    self._ra_fail += 1
-                    continue
-            try:
-                if same:
-                    # même fichier (casse/forme Unicode) : passer par un nom
-                    # temporaire, sinon le système refuse ou ne change rien
-                    tmp = target + ".djh_tmp"
-                    os.rename(p, tmp)
-                    os.rename(tmp, target)
-                else:
-                    os.rename(p, target)
-                self._ra_ok += 1
-                if data.get("in_nml") and self._ra_nml_text is not None:
-                    self._ra_nml_text, n = nml_rewrite_file(
-                        self._ra_nml_text, data.get("dir_raw", ""), data.get("file_raw", ""),
-                        data.get("vol_raw") or self._ra_volume, new_name)
-                    if n == 1:
-                        self._ra_nmlupd += 1
-            except Exception:
+            if not new_name or os.sep in new_name or "/" in new_name:
                 self._ra_fail += 1
+                continue
+            target = os.path.join(os.path.dirname(p), new_name)
+            try:
+                self._ra_rename_one(p, target)
+                done.append((p, target))
+            except Exception as e:
+                self._ra_fail += 1
+                self._ra_errors.append("%s — %s" % (os.path.basename(p), str(e)[:100]))
+        # collection.nml : relu frais et écrit à CHAQUE lot, sous verrou. Si
+        # l'écriture échoue, les renommages du lot sont annulés : fichiers et
+        # nml ne divergent jamais.
+        if done and self._ra_nml_path:
+            with NML_LOCK:
+                try:
+                    text = nml_read(self._ra_nml_path)
+                    orig = text
+                    n_loc_lot = n_ref_lot = 0
+                    for p, target in done:
+                        try:
+                            d = nfc(physical_to_nml_dir(p, self._ra_mount))
+                        except Exception:
+                            continue
+                        text, n_loc, n_ref = nml_rename_file(
+                            text, d, nfc(os.path.basename(p)), os.path.basename(target))
+                        if n_loc:
+                            n_loc_lot += 1
+                            n_ref_lot += n_ref
+                        else:
+                            self._ra_not_in_nml += 1
+                    if text != orig:
+                        nml_write_atomic(self._ra_nml_path, text)
+                    self._ra_nmlupd += n_loc_lot
+                    self._ra_refs += n_ref_lot
+                except Exception as e:
+                    undone = 0
+                    for p, target in reversed(done):
+                        try:
+                            self._ra_rename_one(target, p)
+                            undone += 1
+                        except Exception:
+                            pass
+                    return {"done": end, "total": len(sel), "finished": True,
+                            "result": {"ok": False,
+                                       "error": "Écriture de collection.nml impossible (%s) : "
+                                                "les %d derniers renommages ont été annulés, "
+                                                "%d fichier(s) renommé(s) avant restent "
+                                                "cohérents avec la collection."
+                                                % (e, undone, self._ra_ok),
+                                       "n_renamed": self._ra_ok, "n_nml": self._ra_nmlupd,
+                                       "n_failed": self._ra_fail}}
+        self._ra_ok += len(done)
         self._ra_i = end
         finished = end >= len(sel)
         result = None
         if finished:
-            if self._ra_nml_text is not None and self._ra_nml_path:
-                try:
-                    tmp = self._ra_nml_path + ".tmp"
-                    with open(tmp, "w", encoding="utf-8", newline="") as f:
-                        f.write(self._ra_nml_text)
-                    os.replace(tmp, self._ra_nml_path)
-                except Exception as e:
-                    return {"done": end, "total": len(sel), "finished": True,
-                            "result": {"ok": False,
-                                       "error": "Fichiers renommés mais écriture de collection.nml "
-                                                "échouée : %s. Restaure la sauvegarde." % e,
-                                       "n_renamed": self._ra_ok, "n_nml": self._ra_nmlupd,
-                                       "n_failed": self._ra_fail}}
             result = {"ok": True, "n_renamed": self._ra_ok, "n_nml": self._ra_nmlupd,
-                      "n_failed": self._ra_fail, "nml_backup": self._ra_nml_backup}
+                      "n_refs": self._ra_refs, "n_not_in_nml": self._ra_not_in_nml,
+                      "n_failed": self._ra_fail, "errors": self._ra_errors[:50],
+                      "nml_backup": self._ra_nml_backup}
         return {"done": end, "total": len(sel), "finished": finished, "result": result}
 
     # ================== FILE DE VALIDATION (onglet Tags) ==================
@@ -4559,9 +4903,11 @@ class Core:
                 return ""
             rel = os.path.join(*parts[1:])          # sans le VOLUME
             if self.usb_root:
-                cand = os.path.join(self.usb_root, rel)
-                if os.path.isfile(cand):
-                    return cand
+                mount, _v = usb_mount_and_volume(self.usb_root)
+                for base in (mount, self.usb_root):
+                    cand = os.path.join(base, rel)
+                    if os.path.isfile(cand):
+                        return cand
             if self.music_folder:
                 # le DIR nml inclut souvent le dossier musique lui-même
                 mf_name = os.path.basename(self.music_folder.rstrip(os.sep))
@@ -4572,18 +4918,21 @@ class Core:
                     cand = os.path.join(self.music_folder, *sub)
                 if os.path.isfile(cand):
                     return cand
-                # dernier recours : index par nom de fichier, construit UNE fois
+                # dernier recours : index par nom de fichier, construit UNE
+                # fois. Seulement si le nom est UNIQUE : deux « Intro.mp3 »
+                # dans deux dossiers, et les tags seraient écrits dans le mauvais.
                 idx = getattr(self, "_rv_name_index", None)
                 if idx is None:
                     idx = {}
                     try:
                         for root, _dirs, files in os.walk(self.music_folder):
                             for fn in files:
-                                idx.setdefault(fn, os.path.join(root, fn))
+                                k = path_key(fn)
+                                idx[k] = "" if k in idx else os.path.join(root, fn)
                     except Exception:
                         pass
                     self._rv_name_index = idx
-                return idx.get(parts[-1], "")
+                return idx.get(path_key(parts[-1]), "")
         except Exception:
             pass
         return ""
@@ -4610,12 +4959,10 @@ class Core:
         return False
 
     def _review_save_file(self):
-        import json
         if not getattr(self, "_review_path", "") or self._review_data is None:
             return
         try:
-            with open(self._review_path, "w", encoding="utf-8") as f:
-                json.dump(self._review_data, f, ensure_ascii=False, indent=1)
+            json_save_atomic(self._review_path, self._review_data, ensure_ascii=False, indent=1)
         except Exception:
             pass
 
@@ -4632,12 +4979,10 @@ class Core:
             return {}
 
     def _review_save_proposals(self, props):
-        import json
         try:
             p = self._review_proposals_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(props, f, ensure_ascii=False)
+            json_save_atomic(p, props, ensure_ascii=False)
         except Exception:
             pass
 
@@ -4654,12 +4999,10 @@ class Core:
             return set()
 
     def _review_save_approved(self, keys):
-        import json
         try:
             p = self._review_approved_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(sorted(keys), f, ensure_ascii=False)
+            json_save_atomic(p, sorted(keys), ensure_ascii=False)
         except Exception:
             pass
 
@@ -4676,12 +5019,10 @@ class Core:
             return set()
 
     def _review_save_skips(self, skips):
-        import json
         try:
             p = self._review_skips_path()
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                json.dump(sorted(skips), f, ensure_ascii=False)
+            json_save_atomic(p, sorted(skips), ensure_ascii=False)
         except Exception:
             pass
 
@@ -4734,16 +5075,23 @@ class Core:
                     start, end = 0, size - 1
                     if rng and rng.startswith("bytes="):
                         try:
-                            a, b = rng[6:].split("-")
-                            if a: start = int(a)
-                            if b: end = min(int(b), size - 1)
+                            a, b = rng[6:].split(",")[0].split("-")
+                            if a:
+                                start = int(a)
+                                if b: end = min(int(b), size - 1)
+                            elif b:                       # « bytes=-N » : N derniers octets
+                                start = max(0, size - int(b))
                         except Exception:
                             pass
+                        if start >= size or start > end:
+                            self.send_response(416)
+                            self.send_header("Content-Range", "bytes */%d" % size)
+                            self.end_headers()
+                            return
                     length = end - start + 1
                     self.send_response(206 if rng else 200)
                     self.send_header("Content-Type", mime)
                     self.send_header("Accept-Ranges", "bytes")
-                    self.send_header("Access-Control-Allow-Origin", "*")
                     self.send_header("Content-Length", str(length))
                     if rng:
                         self.send_header("Content-Range",
@@ -4957,6 +5305,8 @@ class Core:
                         it["genre"] = c["genre"]
                     it["genre_src"] = c.get("src", "")
             for k in list(cache.keys()):
+                if k.startswith("_"):     # méta (« _cascade_ver ») : à garder
+                    continue
                 if k not in pending:      # validé ou disparu : purger
                     del cache[k]
                     changed = True
@@ -5043,126 +5393,159 @@ class Core:
             nml_backup_before_write(nml_path, "validation")
 
     def _review_write_nml(self, key, patch):
-        """Écrit genre/année/énergie/marqueur sur l'ENTRY correspondant à la clé.
-        GENRE vit dans INFO (jamais sur ENTRY). Renvoie (ok, err)."""
-        import re, html
+        """Écrit genre/année/énergie/marqueur (INFO) et artiste/titre (ENTRY)
+        sur l'ENTRY dont la LOCATION correspond à la clé VOLUME+DIR+FILE.
+        Sauvegarde obligatoire avant, XML validé, écriture atomique, sous
+        verrou (l'enrichissement auto peut écrire en même temps).
+        Renvoie (ok, err) ; ok=False si rien n'a réellement été écrit."""
+        import html
         nml_path = self._review_nml_path()
         if not nml_path:
             return False, "collection.nml introuvable (configurer la racine de la clé)"
         try:
-            with open(nml_path, encoding="utf-8") as f:
-                nml = f.read()
-        except Exception as e:
-            return False, "lecture nml : %s" % e
-        try:
-            self._review_backup_nml(nml_path)
-        except Exception as e:
-            return False, "sauvegarde de collection.nml impossible, rien n'a été écrit : %s" % e
-        loc_re = re.compile(r'<LOCATION DIR="([^"]*)" FILE="([^"]*)" VOLUME="([^"]*)"')
-        entry_re = re.compile(r'(<ENTRY\b[^>]*>)(.*?)(</ENTRY>)', re.S)
+            if patch.get("year") not in (None, ""):
+                patch = dict(patch, year=int(str(patch["year"]).strip()))
+        except ValueError:
+            return False, "année invalide : %s" % patch.get("year")
         esc = lambda s: html.escape(str(s), quote=True)
-        hit = [0]
+        marks = self._REVIEW_COLOR
+        with NML_LOCK:
+            try:
+                nml = nml_read(nml_path)
+            except Exception as e:
+                return False, "lecture nml : %s" % e
+            try:
+                self._review_backup_nml(nml_path)
+            except Exception as e:
+                return False, ("sauvegarde de collection.nml impossible, rien n'a été "
+                               "écrit : %s" % e)
+            loc_re = re.compile(r'<LOCATION\b[^>]*>')
+            entry_re = re.compile(r'<ENTRY\b[^>]*/>|(<ENTRY\b[^>]*>)(.*?)(</ENTRY>)', re.S)
+            state = {"hit": 0, "info_missing": False}
+            needs_info = any(patch.get(k) for k in ("genre", "year", "energy")) or "mark" in patch
 
-        def fix_entry(m):
-            head, body, tail = m.group(1), m.group(2), m.group(3)
-            lm = loc_re.search(body)
-            if not lm:
-                return m.group(0)
-            k = (html.unescape(lm.group(3)) + html.unescape(lm.group(1))
-                 + html.unescape(lm.group(2)))
-            if k != key:
-                return m.group(0)
-            hit[0] += 1
-
-            newhead = head
-            for attr, val in (("ARTIST", patch.get("artist")),
-                              ("TITLE", patch.get("title"))):
-                if val:
-                    if ('%s="' % attr) in newhead:
-                        newhead = re.sub(r'%s="[^"]*"' % attr,
-                                         '%s="%s"' % (attr, esc(val)), newhead)
-                    else:
-                        newhead = newhead[:-1] + ' %s="%s">' % (attr, esc(val))
-            head = newhead
-
-            def fix_info(im):
-                s = im.group(0)
+            def fix_info(tag):
                 g = patch.get("genre")
                 if g:
-                    s = (re.sub(r'GENRE="[^"]*"', 'GENRE="%s"' % esc(g), s)
-                         if 'GENRE="' in s else s[:-1] + ' GENRE="%s">' % esc(g))
+                    tag = xml_set_attr(tag, "GENRE", esc(g))
                 y = patch.get("year")
                 if y:
-                    rd = "%d/1/1" % int(y)
-                    s = (re.sub(r'RELEASE_DATE="[^"]*"', 'RELEASE_DATE="%s"' % rd, s)
-                         if 'RELEASE_DATE="' in s else s[:-1] + ' RELEASE_DATE="%s">' % rd)
+                    tag = xml_set_attr(tag, "RELEASE_DATE", "%d/1/1" % int(y))
                 e = patch.get("energy")
                 if e and int(e) in self._REVIEW_RANK:
-                    rk = self._REVIEW_RANK[int(e)]
-                    s = (re.sub(r'RANKING="[^"]*"', 'RANKING="%d"' % rk, s)
-                         if 'RANKING="' in s else s[:-1] + ' RANKING="%d">' % rk)
+                    tag = xml_set_attr(tag, "RANKING", str(self._REVIEW_RANK[int(e)]))
                 if "mark" in patch:
-                    mk = patch.get("mark")
-                    if mk in self._REVIEW_COLOR:
-                        c = self._REVIEW_COLOR[mk]
-                        s = (re.sub(r'COLOR="[^"]*"', 'COLOR="%s"' % c, s)
-                             if 'COLOR="' in s else s[:-1] + ' COLOR="%s">' % c)
-                        s = (re.sub(r'COMMENT="[^"]*"', 'COMMENT="%s"' % esc(mk), s)
-                             if 'COMMENT="' in s else s[:-1] + ' COMMENT="%s">' % esc(mk))
+                    mk = patch.get("mark") or ""
+                    old = xml_get_attr(tag, "COMMENT") or ""
+                    # le commentaire personnel est conservé à côté du marqueur
+                    rest = old
+                    for m in marks:
+                        if rest == m:
+                            rest = ""
+                        elif rest.startswith(m + " · "):
+                            rest = rest[len(m) + 3:]
+                    if mk in marks:
+                        tag = xml_set_attr(tag, "COLOR", marks[mk])
+                        tag = xml_set_attr(tag, "COMMENT",
+                                           esc(mk + (" · " + rest if rest else "")))
                     else:
-                        s = re.sub(r'\s*COLOR="[^"]*"', '', s)
-                        s = re.sub(r'\s*COMMENT="[^"]*"', '', s)
-                return s
+                        tag = xml_del_attr(tag, "COLOR")
+                        tag = (xml_set_attr(tag, "COMMENT", esc(rest)) if rest
+                               else xml_del_attr(tag, "COMMENT"))
+                return tag
 
-            body = re.sub(r'<INFO\b[^>]*>', fix_info, body, count=1)
-            return head + body + tail
+            def fix_entry(m):
+                if m.group(1) is None:              # <ENTRY .../> : pas de LOCATION
+                    return m.group(0)
+                head, body, tail = m.group(1), m.group(2), m.group(3)
+                lm = loc_re.search(body)
+                if not lm:
+                    return m.group(0)
+                lt = lm.group(0)
+                k = ((xml_get_attr(lt, "VOLUME") or "") + (xml_get_attr(lt, "DIR") or "")
+                     + (xml_get_attr(lt, "FILE") or ""))
+                if k != key:
+                    return m.group(0)
+                state["hit"] += 1
+                for attr, val in (("ARTIST", patch.get("artist")),
+                                  ("TITLE", patch.get("title"))):
+                    if val:
+                        head = xml_set_attr(head, attr, esc(val))
+                if needs_info:
+                    im = re.search(r'<INFO\b[^>]*>', body)
+                    if not im:
+                        state["info_missing"] = True
+                        return m.group(0)
+                    body = body[:im.start()] + fix_info(im.group(0)) + body[im.end():]
+                return head + body + tail
 
-        out = entry_re.sub(fix_entry, nml)
-        if not hit[0]:
-            return False, "morceau introuvable dans collection.nml"
-        try:
-            with open(nml_path, "w", encoding="utf-8") as f:
-                f.write(out)
-        except Exception as e:
-            return False, "écriture nml : %s" % e
+            out = entry_re.sub(fix_entry, nml)
+            if not state["hit"]:
+                return False, "morceau introuvable dans collection.nml"
+            if state["info_missing"]:
+                return False, "bloc INFO absent pour ce morceau dans collection.nml : rien écrit"
+            if out == nml:
+                return True, ""
+            try:
+                nml_write_atomic(nml_path, out)
+            except Exception as e:
+                return False, "écriture nml refusée (rien n'a été modifié) : %s" % e
         return True, ""
 
     def _review_learn_artist(self, artist, genre):
-        """Alimente la table artiste→genre (source: validation utilisateur)."""
-        import json, re, unicodedata
+        """Alimente la table artiste→genre (source: validation utilisateur).
+        Clé = même normalisation que la recherche (_enr_norm de l'artiste
+        principal) : avant, « daft punk » était appris mais « daftpunk »
+        cherché, et la table ne servait jamais."""
+        import json
         if not artist or not genre:
             return
-        a = artist.split("/")[0].split(",")[0].split(" feat")[0].strip()
-        a = unicodedata.normalize("NFD", a).encode("ascii", "ignore").decode()
-        a = re.sub(r"\s+", " ", a).strip().lower()
+        a = _enr_norm(_enr_primary_artist(artist))
         if not a:
             return
         p = self._review_artist_table_path()
+
+        def load(path):
+            with open(path, encoding="utf-8") as f:
+                t = json.load(f)
+            if not isinstance(t, dict):
+                raise ValueError("format inattendu")
+            return t
+        table = None
         try:
-            with open(p, encoding="utf-8") as f:
-                table = json.load(f)
+            table = load(p)
+        except FileNotFoundError:
+            pass
         except Exception:
-            table = {}
+            json_quarantine(p)          # mis de côté, jamais écrasé
+        if table is None:
+            # table locale absente/illisible (nouveau PC…) : on repart du
+            # miroir de la clé plutôt que d'une table vide — sinon le premier
+            # apprentissage écrasait la mémoire partagée par une seule entrée
+            mirror = (os.path.join(self.usb_root, "DJHELPER_MEMOIRE.json")
+                      if self.usb_root else "")
+            try:
+                table = load(mirror) if mirror else {}
+            except FileNotFoundError:
+                table = {}
+            except Exception:
+                return                  # miroir illisible : ne rien écraser
         ent = table.get(a) or {}
         genres = dict(ent.get("genres") or {})
         if not genres and ent.get("genre"):        # ancien format
             genres[ent["genre"]] = ent.get("count", 1)
         genres[genre] = genres.get(genre, 0) + 1
         table[a] = {"genres": genres, "source": "user"}
-        data = json.dumps(table, ensure_ascii=False, indent=1)
         try:
             os.makedirs(os.path.dirname(p), exist_ok=True)
-            with open(p, "w", encoding="utf-8") as f:
-                f.write(data)
+            json_save_atomic(p, table, ensure_ascii=False, indent=1)
         except Exception:
-            pass
+            return
         # miroir sur la clé : la mémoire voyage avec la collection
         if self.usb_root:
             try:
-                with open(os.path.join(self.usb_root,
-                                       "DJHELPER_MEMOIRE.json"),
-                          "w", encoding="utf-8") as f:
-                    f.write(data)
+                json_save_atomic(os.path.join(self.usb_root, "DJHELPER_MEMOIRE.json"),
+                                 table, ensure_ascii=False, indent=1)
             except Exception:
                 pass
 
@@ -5173,6 +5556,8 @@ class Core:
             it = items[int(item_id)]
         except Exception:
             return {"ok": False, "error": "item inconnu — relance l'analyse"}
+        if it.get("user_applied"):
+            return {"ok": True, "already": True}   # double validation (Entrée + clic)
         patch = patch or {}
         if patch.get("genre") and not patch.get("energy"):
             nrg = enr_energy(it.get("bpm") or 0, patch["genre"])
@@ -5181,14 +5566,17 @@ class Core:
         ok, err = self._review_write_nml(it["key"], patch)
         if not ok:
             return {"ok": False, "error": err}
+        warning = ""
         if patch.get("artist") or patch.get("title"):
             path = self._review_resolve_path(it["key"])
             if path and os.path.isfile(path):
                 try:
                     write_tags(path, patch.get("artist") or it.get("artist", ""),
                                patch.get("title") or it.get("title", ""))
-                except Exception:
-                    pass
+                except Exception as e:
+                    warning = "Traktor mis à jour, mais tags du fichier non écrits : %s" % str(e)[:120]
+            else:
+                warning = "Traktor mis à jour ; fichier audio introuvable, tags non écrits."
             if patch.get("artist"):
                 it["artist"] = patch["artist"]
             if patch.get("title"):
@@ -5212,7 +5600,8 @@ class Core:
         if it["key"] in skips:
             skips.discard(it["key"])
             self._review_save_skips(skips)
-        return {"ok": True}
+        it["user_applied"] = True
+        return {"ok": True, "warning": warning}
 
     def review_approve(self, item_id):
         """'Rien à corriger' : l'état actuel du morceau est bon, ne plus
@@ -5330,15 +5719,28 @@ class Core:
                         user = json.load(f)
                 except Exception:
                     user = None
-        if user:
-            raw.update(user)
+        def norm_table(src):
+            # clés ramenées à la normalisation de recherche ; les anciennes
+            # entrées « daft punk » fusionnent avec « daftpunk »
+            out = {}
+            for a, ent in (src or {}).items():
+                if not isinstance(ent, dict):
+                    continue
+                genres = ent.get("genres") or {}
+                if not genres and ent.get("genre"):     # ancien format / seed
+                    genres = {ent["genre"]: ent.get("count", 1)}
+                k = _enr_norm(a)
+                if not k or not genres:
+                    continue
+                acc = out.setdefault(k, {})
+                for g, n in genres.items():
+                    acc[g] = acc.get(g, 0) + (n or 0)
+            return out
+        merged = norm_table(raw)
+        # tes validations priment sur la mémoire embarquée
+        merged.update(norm_table(user if isinstance(user, dict) else {}))
         table = {}
-        for a, ent in raw.items():
-            genres = ent.get("genres") or {}
-            if not genres and ent.get("genre"):     # ancien format / seed
-                genres = {ent["genre"]: ent.get("count", 1)}
-            if not genres:
-                continue
+        for a, genres in merged.items():
             total = sum(genres.values())
             g, n = max(genres.items(), key=lambda kv: kv[1])
             table[a] = {"genre": g, "ratio": n / total if total else 0,
@@ -5365,8 +5767,12 @@ class Core:
             centry = dict(cache.get(it["key"]) or {})
             if not it.get("year") and not centry.get("no_year"):
                 y, src = enr_find_year(artist, title)
-                if not y:
+                if not y and src == "réseau":
+                    # échec réseau : on retentera, mais pas indéfiniment
+                    centry["net_fails"] = centry.get("net_fails", 0) + 1
+                if not y and (src != "réseau" or centry.get("net_fails", 0) >= 3):
                     centry["no_year"] = True
+                if not y:
                     cache[it["key"]] = centry
                     self._review_save_proposals(cache)
                 if y:
@@ -5385,6 +5791,7 @@ class Core:
                     and not it.get("genre_src") and not centry.get("no_genre"):
                 cur = it.get("genre") or ""
                 prop, src = None, ""
+                _ENR_NET.fails = 0
                 # 1) table artiste (validations de l'utilisateur)
                 key_a = _enr_norm(_enr_primary_artist(artist))
                 ent = table.get(key_a) if key_a else None
@@ -5396,11 +5803,6 @@ class Core:
                     g, raw = enr_genre_beatport(artist, title)
                     if g and g != cur:
                         prop, src = g, "Beatport : %s" % (raw or "")
-                # 3) Discogs styles
-                if not prop:
-                    g, raw = enr_genre_discogs(artist, title)
-                    if g and g != cur:
-                        prop, src = g, "Discogs : %s" % (raw or "")
                 if prop:
                     it["genre"] = prop
                     it["genre_src"] = src
@@ -5408,7 +5810,7 @@ class Core:
                     centry.update({"genre": prop, "src": src})
                     cache[it["key"]] = centry
                     self._review_save_proposals(cache)
-                else:
+                elif not getattr(_ENR_NET, "fails", 0):
                     centry["no_genre"] = True
                     cache[it["key"]] = centry
                     self._review_save_proposals(cache)

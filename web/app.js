@@ -29,7 +29,6 @@ function showView(v, name){
   if (v === 'soon' && name) $('soon-title').textContent = name;
   if (v === 'sync') renderSyncSource();
   if (v === 'home') refreshHome();
-  if (v === 'tags') loadReview();
   if (v === 'dup' && scannedOnce && !dupShown) scanDuplicates();
   if (v === 'integ'){ updateIntegAckeyHint(); refreshBackups(); }
   document.querySelector('.main').scrollTop = 0;
@@ -51,7 +50,7 @@ document.querySelectorAll('[data-go]').forEach(el => el.addEventListener('click'
 // ---------- progression ----------
 function showSpinner(loadingId, text){
   const el = $(loadingId);
-  el.innerHTML = '<span class="spinner"></span>' + (text || '');
+  el.innerHTML = '<span class="spinner"></span>' + esc(t(text || ''));
   el.style.display = 'block';
 }
 function showProgress(loadingId, label){
@@ -66,19 +65,46 @@ function setProgress(loadingId, done, total, label){
   const fill = el.querySelector('.pfill');
   const lab = el.querySelector('.plabel');
   if (fill) fill.style.width = pct + '%';
-  if (lab) lab.textContent = (label ? label + ' ' : '') + pct + ' %';
+  // label traduit AVANT concaténation : « Analyse… 42 % » ne correspond à
+  // aucune clé du dictionnaire, l'observateur i18n ne pouvait pas le traduire
+  if (lab) lab.textContent = (label ? t(label) + ' ' : '') + pct + ' %';
 }
 // Boucle générique : begin() -> {ok,total} ; step(n) -> {done,total,finished,result}
+function toast(msg){
+  let t = document.getElementById('djh-toast');
+  if (!t){
+    t = document.createElement('div');
+    t.id = 'djh-toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 6000);
+}
+
 async function runChunked(loadingId, label, beginFn, stepFn, chunk){
-  const begin = await beginFn();
+  // Robuste : une erreur Python (ok:false), une exception JS ou une réponse
+  // vide arrêtent la boucle au lieu de tourner indéfiniment ; le spinner est
+  // toujours masqué à la fin.
+  let begin;
+  try { begin = await beginFn(); }
+  catch (e) { return {ok: false, error: String(e)}; }
   if (!begin || begin.ok === false) return begin;       // erreur (ex. ffmpeg, dossier)
   showProgress(loadingId, label);
   let last = null;
-  do {
-    last = await stepFn(chunk);
-    setProgress(loadingId, last.done, last.total, label);
-  } while (!last.finished);
-  $(loadingId).style.display = 'none';
+  try {
+    do {
+      last = await stepFn(chunk);
+      if (!last || last.ok === false) return last || {ok: false, error: 'Erreur interne'};
+      setProgress(loadingId, last.done, last.total, label);
+    } while (!last.finished);
+  } catch (e) {
+    return {ok: false, error: String(e)};
+  } finally {
+    $(loadingId).style.display = 'none';
+  }
   return last.result ? last.result : last;
 }
 
@@ -152,7 +178,7 @@ async function scanLibrary(){
       if (r.finished) break;
     }
     $('tile-count').textContent = format(total);
-    const d = await API.find_duplicates();
+    const d = await API.find_duplicates(false);   // comptage seul
     if (d && d.ok){
       $('tile-dup').textContent = format(d.n_groups);
       $('tile-dup').style.color = d.n_groups ? 'var(--warning)' : 'var(--success)';
@@ -237,6 +263,13 @@ async function scanDuplicatesAudio(){
       return;
     }
     last = await API.audiodup_step(8);
+    if (!last || last.ok === false){
+      $('dup-loading').style.display = 'none';
+      $('btn-dup-stop').style.display = 'none';
+      $('btn-scan-dup').disabled = false;
+      $('dup-count').textContent = (last && last.error) || 'Erreur';
+      return;
+    }
     setProgress('dup-loading', last.done, last.total, 'Empreintes audio…');
   } while (!last.finished);
   // Phase 2 : appariement (séparée pour ne pas figer la barre à 100%)
@@ -322,8 +355,11 @@ async function doFixDuplicates(){
     $('btn-dup-fix').disabled = false;
     return;
   }
-  $('dup-fix-count').textContent = r.n_repointed + ' référence(s) repointée(s) · ' + r.n_moved
-    + ' copie(s) au backup. Fais « Remove Missing Tracks » dans Traktor.';
+  let msg = r.n_repointed + ' référence(s) repointée(s) · ' + r.n_moved + ' copie(s) au backup';
+  if (r.n_kept_back) msg += ' · ' + r.n_kept_back + ' copie(s) laissée(s) en place (encore dans une playlist)';
+  if (r.n_failed) msg += ' · ' + r.n_failed + ' déplacement(s) en échec';
+  if (r.notes && r.notes.length) msg += ' · ' + r.notes.join(' · ');
+  $('dup-fix-count').textContent = msg + '. Fais « Remove Missing Tracks » dans Traktor.';
   await scanDuplicates();
   loadDupBackupInfo();
 }
@@ -334,7 +370,8 @@ async function restoreDup(){
   $('btn-dup-restore').disabled = false;
   if (!r || !r.ok){ $('dup-backup-info').textContent = (r && r.error) ? r.error : 'Erreur'; return; }
   $('dup-backup-info').textContent = r.n_restored + ' fichier(s) restauré(s)'
-    + (r.n_failed ? (' · ' + r.n_failed + ' échec(s)') : '');
+    + (r.n_failed ? (' · ' + r.n_failed + ' échec(s)') : '')
+    + (r.n_conflict ? (' · ' + r.n_conflict + ' déjà présent(s), non écrasé(s)') : '');
   await scanDuplicates();
 }
 
@@ -393,7 +430,7 @@ async function chooseMaster(path){
 // ---------- utils ----------
 function format(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0'); }
 function folderName(p){ if(!p) return ''; const parts = p.replace(/[\\/]+$/,'').split(/[\\/]/); return parts[parts.length-1] || p; }
-function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ---------- intégrité ----------
 let integStop = false;
@@ -443,6 +480,40 @@ if ($('bk-clean')){
   $('bk-confirm-no').addEventListener('click', () => { $('bk-confirm').style.display = 'none'; refreshBackups(); });
 }
 
+async function checkPlaylistRefs(){
+  const box = $('integ-refs');
+  if (!box || !API) return;
+  box.innerHTML = '';
+  const r = await API.playlist_refs_check();
+  if (!r || !r.ok || !r.n_dangling) return;
+  const div = document.createElement('div');
+  div.className = 'entry-alert';
+  const list = (r.samples || []).map(n => '<div class="ea-row">' + esc(n) + '</div>').join('');
+  const head = '⚠ ' + r.n_dangling + ' morceau(x) référencé(s) dans des playlists Traktor '
+    + 'introuvable(s) dans la collection — Traktor les retirera des playlists';
+  const tail = r.n_fixable
+    ? '<div class="ea-sub" style="margin-top:8px;">' + r.n_fixable
+      + ' réparable(s) (nom renommé en casse/accents). Clique pour réparer — collection.nml est sauvegardé avant.</div>'
+    : '<div class="ea-sub" style="margin-top:8px;">Aucune réparation automatique sûre (fichier absent ou ambigu).</div>';
+  div.innerHTML = '<div class="ea-head">' + head + '</div>' + list + tail;
+  if (r.n_fixable){
+    let armed = false;
+    div.addEventListener('click', async () => {
+      if (!armed){
+        armed = true;
+        div.querySelector('.ea-head').textContent = 'Confirmer : réparer ' + r.n_fixable
+          + ' référence(s) ? (Traktor doit être fermé) — clique à nouveau';
+        return;
+      }
+      const f = await API.playlist_refs_fix();
+      box.innerHTML = '<div class="' + (f && f.ok ? 'entry-ok' : 'entry-alert') + '">'
+        + (f && f.ok ? '✓ ' + f.n_fixed + ' référence(s) de playlist réparée(s)'
+                     : esc((f && f.error) || 'Erreur')) + '</div>';
+    });
+  }
+  box.appendChild(div);
+}
+
 async function checkDirEntries(){
   const box = $('integ-entries');
   if (!box) return;
@@ -482,6 +553,7 @@ async function scanIntegrity(){
   $('btn-scan-integ').disabled = true;
   integStop = false;
   await checkDirEntries();
+  checkPlaylistRefs();
   const isDeep = (integMode === 'deep');
   const chunk = isDeep ? Math.max(8, parseInt($('integ-workers').value) || 4) : 80;
   const label = isDeep ? 'Analyse approfondie…' : 'Analyse…';
@@ -507,12 +579,13 @@ async function scanIntegrity(){
       return;
     }
     last = await API.integ_step(chunk);
+    if (!last || last.ok === false) break;
     setProgress('integ-loading', last.done, last.total, label);
   } while (!last.finished);
   $('integ-loading').style.display = 'none';
   $('btn-integ-stop').style.display = 'none';
   $('btn-scan-integ').disabled = false;
-  const res = last.result;
+  const res = (last && last.result) || last;
   if (!res || !res.ok){
     $('integ-empty').textContent = (res && res.error) ? res.error : 'Erreur';
     $('integ-empty').style.display = 'block';
@@ -544,7 +617,7 @@ function renderIntegrity(res){
   root.innerHTML = res.items.map(it => {
     const label = it.severity === 'critical' ? 'Critique' : 'À vérifier';
     return '<div class="integ-row">'
-      + '<span class="sev ' + it.severity + '">' + label + '</span>'
+      + '<span class="sev ' + esc(it.severity) + '">' + label + '</span>'
       + '<div><div class="fname">' + esc(it.name) + '</div>'
       + '<div class="ferr">' + esc(it.errors.join(' · ')) + '</div></div></div>';
   }).join('');
@@ -697,14 +770,14 @@ function renderImport(res){
   const root = $('import-results');
   let html = '';
   if (res.missing.length){
-    html += '<div class="imp-section"><h3>Manquants — à récupérer</h3>'
+    html += '<div class="imp-section" id="imp-sec-missing"><h3>Manquants — à récupérer</h3>'
       + res.missing.map(m => '<div class="imp-row"><span class="q">' + esc(m.query) + '</span>'
           + (m.best ? '<span class="imp-best">plus proche sur la clé : « ' + esc(m.best) + ' » (' + m.best_score + ' %)</span>' : '')
           + '</div>').join('')
       + '</div>';
   }
   if (res.review.length){
-    html += '<div class="imp-section"><h3>À vérifier — correspondance incertaine</h3>'
+    html += '<div class="imp-section" id="imp-sec-review"><h3>À vérifier — correspondance incertaine</h3>'
       + res.review.map(r => '<div class="imp-row"><span class="q">' + esc(r.query)
         + '</span><span class="m">≈ ' + esc(r.local) + ' <b>' + r.score + '%</b></span></div>').join('')
       + '</div>';
@@ -745,6 +818,7 @@ async function updateBackups(){
 }
 
 // ---------- AcoustID (vérifier le contenu) ----------
+let lowqList = [];
 async function updateHomeTiles(){
   if (!API) return;
   let s;
@@ -757,6 +831,8 @@ async function updateHomeTiles(){
   lq.textContent = s.low_quality;
   lq.style.color = s.low_quality ? 'var(--warning)' : 'var(--success)';
   $('tile-lowq-meta').textContent = '< ' + s.low_quality_th + ' kbps';
+  lowqList = s.low_quality_list || [];
+  lq.closest('.tile').classList.toggle('clickable', lowqList.length > 0);
   const mt = $('tile-missing');
   mt.textContent = s.missing_tags;
   mt.style.color = s.missing_tags ? 'var(--warning)' : 'var(--success)';
@@ -805,6 +881,7 @@ async function saveAcoustidKey(){
   setAckeyMode(!!v);
 }
 
+let lastAcoustid = null;
 async function checkAcoustid(){
   if (!API) return;
   $('acoustid-results').innerHTML = '';
@@ -818,9 +895,10 @@ async function checkAcoustid(){
   }
   let note = res.n_mismatch + ' divergence' + (res.n_mismatch > 1 ? 's' : '')
     + ' · ' + res.n_match + ' conformes';
-  if (res.n_unident) note += ' · ' + res.n_unident + ' non identifiés';
-  if (res.n_error) note += ' · ' + res.n_error + ' erreurs';
-  $('acoustid-count').textContent = note;
+  $('acoustid-count').innerHTML = esc(note)
+    + (res.n_unident ? ' · <span class="num-link" data-list="unident">' + res.n_unident + ' non identifiés ▸</span>' : '')
+    + (res.n_error ? ' · <span class="num-link" data-list="errors">' + res.n_error + ' erreurs ▸</span>' : '');
+  lastAcoustid = res;
   if (!res.mismatches.length){
     $('acoustid-results').innerHTML = '<div class="empty" style="color:var(--success)">Aucune divergence : le son correspond aux tags. 👌</div>';
     return;
@@ -889,6 +967,33 @@ async function revealFile(path){
   } catch (e){
     alert(t('Impossible de localiser le fichier.'));
   }
+}
+
+// Liste de fichiers dépliable (compteur cliquable -> fichiers à traiter ;
+// clic sur un fichier = le localiser dans le Finder/Explorateur).
+function toggleFileList(anchorEl, boxId, title, items){
+  if (!items || !items.length) return;
+  let box = $(boxId);
+  if (!box){
+    box = document.createElement('div');
+    box.id = boxId;
+    box.className = 'enrich-unident-list';
+    box.style.marginTop = '12px';
+    anchorEl.insertAdjacentElement('afterend', box);
+  }
+  if (box.style.display === 'block'){ box.style.display = 'none'; return; }
+  box.innerHTML = '<div class="unident-head">' + esc(t(title))
+    + ' <span style="color:var(--text-3);font-weight:400;">(' + esc(t('clique un fichier pour le localiser')) + ')</span></div>'
+    + items.map((u, i) => '<div class="unident-item" data-i="' + i + '">' + esc(u.name)
+      + (u.sub ? ' <span style="color:var(--text-3)">· ' + esc(u.sub) + '</span>' : '') + '</div>').join('');
+  box.querySelectorAll('.unident-item[data-i]').forEach(el =>
+    el.addEventListener('click', () => revealFile((items[parseInt(el.dataset.i)] || {}).path)));
+  box.style.display = 'block';
+}
+
+function scrollToEl(id){
+  const el = $(id);
+  if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 function toggleEnrichUnident(){
@@ -1004,7 +1109,7 @@ function renderImportCheck(results){
     let d = '';
     if (r.ident) d += 'Identifié : ' + esc(r.ident);
     if (r.base) d += (d ? ' · ' : '') + 'déjà présent : <b>' + esc(r.base) + '</b>'
-      + (r.score !== '' ? (' (' + r.score + ')') : '');
+      + (r.score !== '' ? (' (' + esc(r.score) + ')') : '');
     return '<div class="impchk-row" data-idx="' + i + '" data-path="' + esc(r.path) + '">'
       + '<input type="checkbox"' + (r.checked_default ? ' checked' : '') + '>'
       + '<div class="body"><div class="f">' + esc(r.name)
@@ -1031,6 +1136,7 @@ async function discardImport(){
 }
 
 // ---------- renommage ----------
+let renameNoTags = [];
 let renameRows = [];
 
 async function renameScan(){
@@ -1048,9 +1154,10 @@ async function renameScan(){
   }
   renameRows = (res.rows || []).map(r => Object.assign({}, r, {_checked: true}));
   let note = res.n_rename + ' à renommer · ' + res.n_already + ' déjà au format';
-  if (res.n_no_tags) note += ' · ' + res.n_no_tags + ' sans tags';
   if (!res.has_nml) note += ' · ⚠ sans suivi Traktor';
-  $('rename-count').textContent = note;
+  $('rename-count').innerHTML = esc(note)
+    + (res.n_no_tags ? ' · <span class="num-link" data-list="notags">' + res.n_no_tags + ' sans tags ▸</span>' : '');
+  renameNoTags = res.no_tags || [];
   if (renameRows.length){
     renderRenameTable();
     $('rename-results').style.display = 'block';
@@ -1096,8 +1203,7 @@ function cancelRename(){
 
 async function applyRename(){
   const sel = renameRows.filter(r => r._checked).map(r => ({
-    path: r.path, new_name: r.new_name, in_nml: r.in_nml,
-    dir_raw: r.dir_raw, file_raw: r.file_raw }));
+    path: r.path, new_name: r.new_name }));
   if (!sel.length) return;
   $('rename-confirm').style.display = 'none';
   const res = await runChunked('rename-loading', 'Renommage…',
@@ -1108,8 +1214,10 @@ async function applyRename(){
   }
   let note = res.n_renamed + ' renommé(s)';
   if (res.n_nml) note += ' · ' + res.n_nml + ' entrée(s) Traktor maj';
+  if (res.n_refs) note += ' · ' + res.n_refs + ' référence(s) de playlist maj';
   if (res.n_failed) note += ' · ' + res.n_failed + ' échec(s)';
   $('rename-count').textContent = note;
+  $('rename-count').title = (res.errors || []).join('\n');
   $('rename-results').style.display = 'none';
   renameRows = [];
 }
@@ -1201,6 +1309,10 @@ async function runFullBackup(){
     $('full-count').textContent = 'Snapshot créé · ' + res.copied + ' copié(s), ' + res.linked + ' lié(s)';
   else
     $('full-count').textContent = 'Miroir à jour · ' + res.copied + ' copié(s), ' + res.archived + ' archivé(s)';
+  if (res.n_failed){
+    $('full-count').textContent += ' · ⚠ ' + res.n_failed + ' fichier(s) non sauvegardé(s)';
+    $('full-count').title = (res.failed || []).join('\n');
+  }
 }
 
 async function generateM3u(){
@@ -1215,7 +1327,9 @@ async function generateM3u(){
   let note = res.playlists + ' playlist(s) exportée(s)';
   if (res.orphans) note += ' · ' + res.orphans + ' supprimée(s)';
   if (res.missing) note += ' · ' + res.missing + ' fichier(s) manquant(s)';
+  if (res.n_failed) note += ' · ⚠ ' + res.n_failed + ' playlist(s) non écrite(s)';
   $('m3u-count').textContent = note;
+  $('m3u-count').title = (res.failed || []).join('\n');
 }
 
 async function pickSpare(){
@@ -1251,14 +1365,20 @@ async function planSync(){
 }
 
 function renderSyncPlan(res){
-  $('sync-count').textContent = res.n_copy + ' à copier · ' + res.n_delete + ' à supprimer · ' + res.copy_h;
+  $('sync-count').textContent = res.n_copy + ' à copier · ' + res.n_delete + ' à supprimer'
+    + (res.n_rename ? ' · ' + res.n_rename + ' à renommer' : '') + ' · ' + res.copy_h;
   const root = $('sync-results');
-  if (res.n_copy === 0 && res.n_delete === 0){
+  if (res.n_copy === 0 && res.n_delete === 0 && !res.n_rename){
     root.innerHTML = '<div class="empty">Ta clé de secours est déjà à jour. Rien à synchroniser. 👌</div>';
     $('btn-sync-apply').style.display = 'none';
     return;
   }
   let html = '';
+  if (res.n_rename){
+    const list = res.to_rename.slice(0, 200).map(p => '<div class="imp-row"><span class="q">' + esc(p[0]) + '</span><span class="m">→ ' + esc(p[1]) + '</span></div>').join('');
+    html += '<div class="imp-section"><h3>À renommer sur la clé de secours (casse/accents) (' + res.n_rename + ')</h3>' + list
+      + (res.n_rename > 200 ? '<div class="empty">… et ' + (res.n_rename - 200) + ' autres</div>' : '') + '</div>';
+  }
   if (res.n_copy){
     const list = res.to_copy.slice(0, 200).map(f => '<div class="imp-row"><span class="q">' + esc(f) + '</span></div>').join('');
     html += '<div class="imp-section"><h3>À copier vers la clé de secours (' + res.n_copy + ')</h3>' + list
@@ -1278,7 +1398,8 @@ function askSyncConfirm(){
   $('btn-sync-apply').style.display = 'none';
   $('sync-confirm-text').textContent =
     'Synchroniser\u00a0: ' + lastPlan.n_copy + ' fichier(s) copié(s) et '
-    + lastPlan.n_delete + ' supprimé(s) sur la clé de secours. '
+    + lastPlan.n_delete + ' supprimé(s)' + (lastPlan.n_rename ? ', ' + lastPlan.n_rename + ' renommé(s)' : '')
+    + ' sur la clé de secours. '
     + 'Les suppressions sont définitives.';
   $('sync-confirm').style.display = 'flex';
 }
@@ -1302,6 +1423,7 @@ async function applySync(){
     return;
   }
   const note = res.n_copied + ' copié(s) · ' + res.n_deleted + ' supprimé(s)'
+    + (res.n_renamed ? ' · ' + res.n_renamed + ' renommé(s)' : '')
     + (res.n_failed ? ' · ' + res.n_failed + ' échec(s)' : '');
   $('sync-count').textContent = 'Terminé : ' + note;
   $('sync-results').innerHTML = '<div class="empty" style="color:'
@@ -1487,7 +1609,7 @@ function toggleStatusPopup(){
   p.querySelectorAll('.status-item').forEach(el => el.addEventListener('click', () => {
     const nav = el.dataset.nav;
     p.style.display = 'none';
-    if (nav) showView(nav);
+    if (nav) navTo(nav);
   }));
   p.style.display = 'block';
 }
@@ -1513,11 +1635,6 @@ let rvTotal = 0;         // total au moment du scan
 
 function rvFiltered(){
   return rvFilter ? rvItems.filter(i => i.priority === rvFilter) : rvItems;
-}
-
-function loadReview(){
-  // à l'ouverture de l'onglet : si un scan a déjà eu lieu, il reste affiché.
-  // Sinon, on attend le clic sur « Analyser ma bibliothèque ».
 }
 
 async function rvScan(){
@@ -1601,7 +1718,7 @@ function rvRenderSummary(){
   const mk = (label, n, prio) => {
     const t = document.createElement('div');
     t.className = 'tile rv-tile' + (rvFilter === prio ? ' active' : '');
-    t.innerHTML = '<div class="lab">' + label + '</div><div class="num warn">' + n + '</div>';
+    t.innerHTML = '<div class="lab">' + esc(label) + '</div><div class="num warn">' + n + '</div>';
     t.addEventListener('click', () => {
       rvFilter = (rvFilter === prio) ? '' : prio;
       rvIdx = 0;
@@ -1684,13 +1801,13 @@ function rvRenderItem(){
   (it.choices || []).forEach((g, i) => {
     const b = document.createElement('button');
     b.className = 'rv-choice';
-    b.innerHTML = '<span class="k">' + (i + 1) + '</span>' + g;
+    b.innerHTML = '<span class="k">' + (i + 1) + '</span>' + esc(g);
     b.addEventListener('click', () => rvApply({ genre: g }));
     box.appendChild(b);
   });
   const sel = $('rv-genre-select');
   sel.innerHTML = '<option value="">Genre…</option>' +
-    rvGenres.map(g => '<option>' + g + '</option>').join('');
+    rvGenres.map(g => '<option>' + esc(g) + '</option>').join('');
   if (it.genre && rvGenres.indexOf(it.genre) < 0){
     const o = document.createElement('option');
     o.textContent = it.genre;
@@ -1705,7 +1822,9 @@ function rvRenderItem(){
   });
 }
 
+let rvBusy = false;
 async function rvApply(patch){
+  if (rvBusy) return;                 // une validation à la fois
   const it = rvCurrent();
   if (!it) return;
   const sel = $('rv-genre-select').value;
@@ -1727,11 +1846,14 @@ async function rvApply(patch){
     return;
   }
   let r = null;
+  rvBusy = true;
   try { r = await API.review_apply(it.id, patch); } catch (e){ r = null; }
+  finally { rvBusy = false; }
   if (!r || !r.ok){
     alert('Écriture impossible : ' + ((r && r.error) || 'erreur inconnue'));
     return;
   }
+  if (r.warning) toast(r.warning);
   rvItems = rvItems.filter(x => x.id !== it.id);
   rvDone += 1;
   const flt = rvFiltered();
@@ -1776,6 +1898,10 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter'){ e.preventDefault(); rvApply({}); }
     return;
   }
+  // bouton focalisé : Entrée déclenche déjà SON clic — ne pas valider en
+  // plus (double action : valider + passer, etc.).
+  // (Espace reste géré plus bas : lecture/pause, avec preventDefault)
+  if (tag === 'BUTTON' && e.key === 'Enter') return;
   const it = rvCurrent();
   if (!it) return;
   if (e.key === ' '){
@@ -1859,7 +1985,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.14';
+const APP_VERSION = 'v1.5.15';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
@@ -1922,6 +2048,7 @@ $('btn-vq-regen').addEventListener('click', async () => {
   const prog = $('vault-progress');
   prog.style.display = '';
   prog.innerHTML = '<span class="spinner"></span>' + esc(t('Lecture de collection.nml…'));
+  let failed = '';
   try {
     const begin = await API.m3u_begin();
     if (!begin || !begin.ok){
@@ -1931,16 +2058,44 @@ $('btn-vq-regen').addEventListener('click', async () => {
       return;
     }
     const total = begin.total || 0;
-    let done = 0;
-    while (done < total){
-      const r = await API.m3u_step(8);
-      done = r.done;
-      prog.innerHTML = '<span class="spinner"></span>' + esc(t('Génération…') + ' ' + Math.round(done * 100 / Math.max(total, 1)) + ' %');
-      if (r.finished) break;
-    }
-    prog.textContent = t('Terminé : ') + t('coffre-fort à jour');
-  } catch (e){}
+    let r = null;
+    do {                                    // au moins un lot, même à 0 playlist
+      r = await API.m3u_step(8);
+      if (!r || r.ok === false){ failed = (r && r.error) || t('Échec'); break; }
+      prog.innerHTML = '<span class="spinner"></span>' + esc(t('Génération…') + ' ' + Math.round((r.done || 0) * 100 / Math.max(total, 1)) + ' %');
+    } while (!r.finished);
+  } catch (e){ failed = String(e); }
+  if (failed){
+    // erreur : on NE quitte PAS, l'utilisateur décide (réessayer / quitter)
+    prog.textContent = t('Échec') + ' : ' + failed;
+    ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = false);
+    vaultBusy = false;
+    return;
+  }
+  prog.textContent = t('Terminé : ') + t('coffre-fort à jour');
   vaultBusy = false;
   if (vaultMode === 'quit') API.confirm_quit();
   else setTimeout(() => { $('vault-modal').style.display = 'none'; }, 1200);
 });
+
+// ---------- compteurs cliquables ----------
+$('tile-lowq').closest('.tile').addEventListener('click', () =>
+  toggleFileList($('tile-lowq').closest('.tiles'), 'lowq-list',
+                 'Faible qualité — à remplacer par une meilleure source', lowqList));
+$('acoustid-count').addEventListener('click', (e) => {
+  const el = e.target && e.target.closest && e.target.closest('[data-list]');
+  if (!el || !lastAcoustid) return;
+  const kind = el.dataset.list;
+  toggleFileList($('acoustid-count'), 'acoustid-list-' + kind,
+    kind === 'errors' ? 'Erreurs d’identification (réseau, quota, fichier) — relance plus tard'
+                      : 'Non identifiés par AcoustID — à vérifier à l’oreille',
+    lastAcoustid[kind] || []);
+});
+$('rename-count').addEventListener('click', (e) => {
+  const el = e.target && e.target.closest && e.target.closest('[data-list]');
+  if (el) toggleFileList($('rename-count'), 'rename-notags-list',
+                         'Sans tags — à taguer avant de pouvoir les renommer', renameNoTags);
+});
+$('imp-review').closest('.tile').addEventListener('click', () => scrollToEl('imp-sec-review'));
+$('imp-missing').closest('.tile').addEventListener('click', () => scrollToEl('imp-sec-missing'));
+$('tags-fix').closest('.tile').addEventListener('click', () => scrollToEl('tags-preview'));

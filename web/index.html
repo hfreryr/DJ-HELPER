@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DJ Helper</title>
-<link rel="stylesheet" href="style.css?v=1514">
+<link rel="stylesheet" href="style.css?v=1515">
 </head>
 <body>
 
@@ -219,8 +219,8 @@
       </div>
       <div class="tiles import-counters" id="import-counters" style="display:none;">
         <div class="tile"><div class="lab">Trouvés</div><div class="num" id="imp-found" style="color:var(--success)">—</div><div class="meta">déjà sur ta clé</div></div>
-        <div class="tile"><div class="lab">À vérifier</div><div class="num warn" id="imp-review">—</div><div class="meta">correspondance incertaine</div></div>
-        <div class="tile"><div class="lab">Manquants</div><div class="num err" id="imp-missing">—</div><div class="meta">à récupérer</div></div>
+        <div class="tile clickable"><div class="lab">À vérifier</div><div class="num warn" id="imp-review">—</div><div class="meta">correspondance incertaine</div></div>
+        <div class="tile clickable"><div class="lab">Manquants</div><div class="num err" id="imp-missing">—</div><div class="meta">à récupérer</div></div>
       </div>
       <div class="toolbar" id="import-exports" style="display:none;">
         <button class="btn ghost" id="btn-export-m3u">Générer le M3U des trouvés</button>
@@ -362,7 +362,7 @@
       </div>
       <div class="tiles tags-counters" id="tags-counters" style="display:none;">
         <div class="tile"><div class="lab">Bien taggés</div><div class="num" id="tags-ok" style="color:var(--success)">—</div></div>
-        <div class="tile"><div class="lab">À corriger</div><div class="num warn" id="tags-fix">—</div></div>
+        <div class="tile clickable"><div class="lab">À corriger</div><div class="num warn" id="tags-fix">—</div></div>
         <div class="tile" id="tile-lost"><div class="lab">Non identifiables</div><div class="num err" id="tags-lost">—</div></div>
       </div>
       <div class="enrich-unident-list" id="tags-lost-list" style="display:none; margin-top:12px;"></div>
@@ -510,6 +510,7 @@
         <div class="bk-note" id="bk-msg"></div>
       </div>
       <div id="integ-entries"></div>
+      <div id="integ-refs"></div>
       <div id="integ-list"></div>
       <div class="empty" id="integ-empty" style="display:none;">Choisis d'abord ton dossier sur l'accueil, puis lance l'analyse.</div>
       <div class="loading" id="integ-loading" style="display:none;"><span class="spinner"></span>Analyse des fichiers… (peut prendre un moment sur une grosse bibliothèque)</div>
@@ -641,7 +642,7 @@
       </div>
     </div>
   </div>
-<script src="i18n.js?v=1514"></script>
-  <script src="app.js?v=1514"></script>
+<script src="i18n.js?v=1515"></script>
+  <script src="app.js?v=1515"></script>
 </body>
 </html>
