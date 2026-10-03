@@ -1,7 +1,12 @@
 name: Build releases
 
+# Release automatique : un push sur main qui change APP_VERSION (web/app.js)
+# publie la version si elle n'a pas encore de release. Le tag est créé ici,
+# par GitHub, avec son jeton interne : plus besoin de pousser un tag.
 on:
   push:
+    branches: [main]
+    paths: ["web/app.js", ".github/workflows/build.yml"]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -9,7 +14,35 @@ permissions:
   contents: write
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG=$(grep -oE "const APP_VERSION = 'v[0-9]+\.[0-9]+\.[0-9]+'" web/app.js | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+")
+          fi
+          if [ -z "$TAG" ]; then echo "APP_VERSION introuvable"; exit 1; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG déjà publiée : rien à faire."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nouvelle version $TAG : build + release."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   windows:
+    needs: version
+    if: needs.version.outputs.release == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,12 +71,14 @@ jobs:
           --collect-all webview --collect-submodules mutagen
           --hidden-import numpy --hidden-import rapidfuzz main.py
       - run: Compress-Archive -Path "dist/DJ Helper" -DestinationPath "DJHelper-windows.zip"
-      - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+      - uses: actions/upload-artifact@v4
         with:
-          files: DJHelper-windows.zip
+          name: windows
+          path: DJHelper-windows.zip
 
   macos:
+    needs: version
+    if: needs.version.outputs.release == 'true'
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -79,16 +114,32 @@ jobs:
           --collect-all webview --collect-submodules mutagen
           --hidden-import numpy --hidden-import rapidfuzz main.py
       - run: ditto -c -k --keepParent "dist/DJ Helper.app" DJHelper-macos.zip
-      - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+      - uses: actions/upload-artifact@v4
         with:
-          files: DJHelper-macos.zip
+          name: macos
+          path: DJHelper-macos.zip
+
+  publish:
+    # Release créée seulement quand les DEUX builds ont réussi (atomique)
+    needs: [version, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$TAG" --notes "DJ Helper $TAG" \
+            dist/windows/DJHelper-windows.zip dist/macos/DJHelper-macos.zip
 
   cleanup:
     # Ne garder que les 3 dernières releases : supprime les plus anciennes (release + tag)
     runs-on: ubuntu-latest
-    needs: [windows, macos]
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [publish]
     steps:
       - name: Keep only the 3 latest releases
         env:
