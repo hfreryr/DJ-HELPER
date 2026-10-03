@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DJ Helper</title>
-<link rel="stylesheet" href="style.css?v=1515">
+<link rel="stylesheet" href="style.css?v=1516">
 </head>
 <body>
 
@@ -128,7 +128,7 @@
         </div>
 
         <div class="dash-section">Santé de la collection</div>
-        <div class="tiles">
+        <div class="tiles tiles-5">
           <div class="tile clickable" data-go="dup">
             <div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg> Doublons</div>
             <div class="num" id="tile-dup">—</div>
@@ -159,7 +159,7 @@
         <div class="dash-section">Sauvegardes</div>
         <div class="bk-list" id="bk-list"></div>
 
-        <div class="card cfg-card">
+        <div class="card cfg-card" id="cfg-card">
           <div class="card-title">Configuration<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Les deux dossiers dont DJ Helper a besoin. Modifiables à tout moment.</span></span></div>
           <div class="cfg-line">
             <div class="cfg-info">
@@ -215,7 +215,7 @@
       <textarea id="import-text" class="import-text" spellcheck="false" placeholder="Daft Punk - Get Lucky&#10;Stromae - Alors on danse&#10;Earth, Wind & Fire - September"></textarea>
       <div class="toolbar">
         <button class="btn primary" id="btn-compare">Analyser la playlist</button>
-        <span class="count-chip" id="import-count">—</span>
+        <span class="count-chip" id="import-count"></span>
       </div>
       <div class="tiles import-counters" id="import-counters" style="display:none;">
         <div class="tile"><div class="lab">Trouvés</div><div class="num" id="imp-found" style="color:var(--success)">—</div><div class="meta">déjà sur ta clé</div></div>
@@ -236,7 +236,7 @@
         <div class="card-sub">Avant d'intégrer de nouveaux fichiers à ta banque, repère ce que tu as déjà pour éviter les doublons</div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-impchk">Choisir un dossier à vérifier</button>
-          <span class="count-chip" id="impchk-count">—</span>
+          <span class="count-chip" id="impchk-count"></span>
         </div>
         <div class="warn-note" id="impchk-unknown" style="display:none;">⚠ Les « non identifiés » (inconnus d'AcoustID) ne sont pas pré-cochés : l'un d'eux peut être un doublon que l'empreinte n'a pas reconnu. Vérifie-les à la main avant de verser dans ta banque.</div>
         <div id="impchk-results" style="display:none;">
@@ -260,8 +260,11 @@
         <div class="card-sub">Repère les morceaux jamais classés dans une playlist</div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-orphans">Analyser</button>
+
+          <span class="count-chip" id="orphans-count"></span>
+        </div>
+        <div class="toolbar" style="margin-top:10px;">
           <button class="btn ghost" id="btn-orphans-traktor" style="display:none;">Créer la playlist « À CLASSER » dans Traktor<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Écrit dans <code>collection.nml</code> une playlist « À CLASSER » contenant tes morceaux hors playlist (sauvegarde du .nml faite avant). Ouvre ensuite Traktor : glisse-dépose chaque morceau vers sa vraie playlist. La playlist est régénérée à chaque passage — les morceaux classés en disparaissent d'eux-mêmes. Traktor doit être fermé.</span></span></button>
-          <span class="count-chip" id="orphans-count">—</span>
         </div>
         <div class="ok-note" id="orphans-traktor-result" style="display:none; margin-top:10px;"></div>
         <div class="enrich-unident-list" id="orphans-list" style="display:none; margin-top:12px;"></div>
@@ -280,7 +283,7 @@
 
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="rv-scan">Analyser ma bibliothèque</button>
-          <span class="count-chip" id="rv-chip">—</span>
+          <span class="count-chip" id="rv-chip"></span>
         </div>
         <div class="loading" id="review-loading" style="display:none;"><span class="spinner"></span>Analyse de la collection…</div>
         <div class="empty" id="review-error" style="display:none;"></div>
@@ -300,16 +303,17 @@
         <div id="review-main" style="display:none;">
           <div class="toolbar" style="margin-top:14px; align-items:center;">
             <div class="rv-progress"><div class="rv-fill" id="rv-fill"></div></div>
+            <span class="rv-progress-txt" id="rv-progress-txt"></span>
           </div>
 
           <div class="rv-item">
             <div class="rv-prio-badge" id="rv-prio"></div>
             <div class="rv-head"><span id="rv-artist"></span><span class="rv-sep">—</span><span id="rv-title"></span></div>
-            <div class="rv-meta"><span id="rv-bpm"></span> BPM · proposé : <b id="rv-genre"></b><span id="rv-yearlab"> · année <b id="rv-year"></b></span></div>
+            <div class="rv-meta" id="rv-meta"></div>
             <div class="rv-src" id="rv-src" style="display:none;"></div>
             <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
               <audio id="rv-audio" controls preload="none" style="flex:1;"></audio>
-              <button class="btn ghost btn-sm" id="rv-audio-reset" title="Le son ne sort pas sur le bon périphérique (écouteurs branchés après coup) ? Recharge le flux audio.">🔄</button>
+              <button class="btn ghost btn-sm rv-audio-reset" id="rv-audio-reset" title="Le son ne sort pas sur le bon périphérique (écouteurs branchés après coup) ? Recharge le flux audio."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0116 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>Sortie audio</button>
             </div>
             <div class="rv-missing" id="rv-missing" style="display:none;">⚠ Fichier introuvable — branche ta clé USB ou vérifie la racine dans la configuration.</div>
 
@@ -352,7 +356,7 @@
       <div class="toolbar">
         <button class="btn primary" id="btn-scan-tags">Scanner</button>
         <button class="btn ghost" id="btn-apply-retag" style="display:none;">Modifier les tags</button>
-        <span class="count-chip" id="tags-count">—</span>
+        <span class="count-chip" id="tags-count"></span>
       </div>
       <div class="retag-confirm" id="retag-confirm" style="display:none;">
         <span id="retag-confirm-text"></span>
@@ -377,7 +381,7 @@
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-enrich">Identifier</button>
           <button class="btn ghost" id="btn-enrich-stop" style="display:none;">Arrêter</button>
-          <span class="count-chip" id="enrich-count">—</span>
+          <span class="count-chip" id="enrich-count"></span>
 
         </div>
         <div class="enrich-unident-list" id="enrich-unident-list" style="display:none; margin-top:10px;"></div>
@@ -404,7 +408,7 @@
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-rename-scan">Analyser</button>
           <button class="btn ghost" id="btn-rename-apply" style="display:none;">Renommer la sélection</button>
-          <span class="count-chip" id="rename-count">—</span>
+          <span class="count-chip" id="rename-count"></span>
         </div>
         <div class="retag-confirm" id="rename-confirm" style="display:none;">
           <span id="rename-confirm-text"></span>
@@ -442,7 +446,7 @@
         <button class="btn primary" id="btn-scan-dup">Scanner</button>
         <button class="btn ghost" id="btn-dup-stop" style="display:none; color:var(--error); border-color:var(--error);">Arrêter</button>
         <span style="flex:1;"></span>
-        <span class="count-chip" id="dup-count">—</span>
+        <span class="count-chip" id="dup-count"></span>
       </div>
       <input type="text" id="dup-filter" class="ac-key-input" style="display:none; max-width:280px; margin-top:14px;" spellcheck="false" placeholder="Filtrer les résultats…">
       <div id="dup-list"></div>
@@ -493,21 +497,7 @@
       <div class="toolbar">
         <button class="btn primary" id="btn-scan-integ">Lancer l'analyse</button>
         <button class="btn ghost" id="btn-integ-stop" style="display:none; color:var(--error); border-color:var(--error);">Arrêter</button>
-        <span class="count-chip" id="integ-count">—</span>
-      </div>
-      <div class="card bk-card" id="bk-card">
-        <div class="card-title">Sauvegardes de collection.nml</div>
-        <div class="bk-row" id="bk-djh">—</div>
-        <div class="bk-row" id="bk-trk">—</div>
-        <div class="toolbar" style="gap:8px; margin-top:10px;">
-          <button class="btn ghost" id="bk-clean">Faire le ménage des sauvegardes Traktor…</button>
-          <span id="bk-confirm" style="display:none;">
-            <span id="bk-confirm-txt"></span>
-            <button class="btn ghost bk-danger" id="bk-confirm-yes">Supprimer</button>
-            <button class="btn ghost" id="bk-confirm-no">Annuler</button>
-          </span>
-        </div>
-        <div class="bk-note" id="bk-msg"></div>
+        <span class="count-chip" id="integ-count"></span>
       </div>
       <div id="integ-entries"></div>
       <div id="integ-refs"></div>
@@ -519,10 +509,10 @@
       <div class="card" style="margin-top:28px;">
         <div class="card-title">Vérifier le contenu audio (AcoustID)<span class="info" tabindex="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg><span class="tip">Calcule l'empreinte acoustique de chaque fichier (Chromaprint / <code>fpcalc</code>) et l'identifie en ligne via AcoustID, puis compare au tag artiste. Nécessite une clé AcoustID gratuite et <code>fpcalc</code> installé. Analyse en ligne : comptez ~1 fichier/seconde (mis en cache ensuite).</span></span></div>
         <div class="card-sub">Le son de ton fichier correspond-il à ses tags ?</div>
-        <div class="hint-inline" id="ackey-missing-hint" style="display:none;">⚠ Clé AcoustID non configurée — définis-la sur l'accueil (Configuration) pour activer la vérification.</div>
+        <div class="hint-inline go-config" id="ackey-missing-hint" style="display:none;">⚠ Clé AcoustID non configurée — définis-la sur l'accueil (Configuration) pour activer la vérification. ▸</div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-acoustid">Vérifier le contenu</button>
-          <span class="count-chip" id="acoustid-count">—</span>
+          <span class="count-chip" id="acoustid-count"></span>
         </div>
         <div id="acoustid-results"></div>
         <div class="loading" id="acoustid-loading" style="display:none;"><span class="spinner"></span>Identification en ligne…</div>
@@ -541,7 +531,7 @@
             <div class="card-sub" id="src-path">Ton dossier audio</div>
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn ghost" id="btn-reset-usb" style="display:none;">Réinitialiser</button>
+            <button class="btn ghost" id="btn-reset-usb" style="display:none;">Dossier audio seul</button>
             <button class="btn ghost" id="btn-pick-usb">Racine de la clé…</button>
           </div>
         </div>
@@ -555,23 +545,22 @@
           </div>
           <button class="btn ghost" id="btn-pick-spare">Choisir</button>
         </div>
-      </div>
+        <div class="toolbar" style="margin-top:14px;">
+          <button class="btn primary" id="btn-sync-plan" disabled>Analyser</button>
+          <button class="btn ghost" id="btn-sync-apply" style="display:none;">Synchroniser</button>
+          <span class="count-chip" id="sync-count"></span>
+        </div>
 
-      <div class="toolbar">
-        <button class="btn primary" id="btn-sync-plan" disabled>Analyser</button>
-        <button class="btn ghost" id="btn-sync-apply" style="display:none;">Synchroniser</button>
-        <span class="count-chip" id="sync-count">—</span>
-      </div>
+        <div class="retag-confirm" id="sync-confirm" style="display:none;">
+          <span id="sync-confirm-text"></span>
+          <span style="flex:1;"></span>
+          <button class="btn ghost" id="btn-sync-no">Annuler</button>
+          <button class="btn primary" id="btn-sync-yes">Confirmer</button>
+        </div>
 
-      <div class="retag-confirm" id="sync-confirm" style="display:none;">
-        <span id="sync-confirm-text"></span>
-        <span style="flex:1;"></span>
-        <button class="btn ghost" id="btn-sync-no">Annuler</button>
-        <button class="btn primary" id="btn-sync-yes">Confirmer</button>
+        <div id="sync-results"></div>
+        <div class="loading" id="sync-loading" style="display:none;"><span class="spinner"></span>Comparaison des deux dossiers…</div>
       </div>
-
-      <div id="sync-results"></div>
-      <div class="loading" id="sync-loading" style="display:none;"><span class="spinner"></span>Comparaison des deux dossiers…</div>
 
       <div class="card" style="margin-top:28px;">
         <div class="row-between">
@@ -583,7 +572,7 @@
         </div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-export-struct" disabled>Sauvegarder la structure</button>
-          <span class="count-chip" id="struct-count">—</span>
+          <span class="count-chip" id="struct-count"></span>
         </div>
         <div class="loading" id="struct-loading" style="display:none;"><span class="spinner"></span>Indexation…</div>
       </div>
@@ -597,11 +586,25 @@
         </div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-m3u">Générer les M3U</button>
-          <span class="count-chip" id="m3u-count">—</span>
+          <span class="count-chip" id="m3u-count"></span>
         </div>
         <div class="loading" id="m3u-loading" style="display:none;"><span class="spinner"></span>Lecture de collection.nml…</div>
       </div>
 
+      <div class="card bk-card" id="bk-card" style="margin-top:24px;">
+        <div class="card-title">Sauvegardes de collection.nml</div>
+        <div class="bk-line" id="bk-djh"></div>
+        <div class="bk-line" id="bk-trk"></div>
+        <div class="toolbar" style="gap:8px; margin-top:10px;">
+          <button class="btn ghost" id="bk-clean">Faire le ménage des sauvegardes Traktor…</button>
+          <span id="bk-confirm" style="display:none;">
+            <span id="bk-confirm-txt"></span>
+            <button class="btn ghost bk-danger" id="bk-confirm-yes">Supprimer</button>
+            <button class="btn ghost" id="bk-confirm-no">Annuler</button>
+          </span>
+        </div>
+        <div class="bk-note" id="bk-msg"></div>
+      </div>
       <div class="card" style="margin-top:24px;">
         <div class="row-between">
           <div>
@@ -612,7 +615,7 @@
         </div>
         <div class="toolbar" style="margin-top:14px;">
           <button class="btn primary" id="btn-full-backup" disabled>Sauvegarder tout</button>
-          <span class="count-chip" id="full-count">—</span>
+          <span class="count-chip" id="full-count"></span>
         </div>
         <div class="loading" id="full-loading" style="display:none;"><span class="spinner"></span>Sauvegarde en cours…</div>
       </div>
@@ -642,7 +645,7 @@
       </div>
     </div>
   </div>
-<script src="i18n.js?v=1515"></script>
-  <script src="app.js?v=1515"></script>
+<script src="i18n.js?v=1516"></script>
+  <script src="app.js?v=1516"></script>
 </body>
 </html>

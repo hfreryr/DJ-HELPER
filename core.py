@@ -2162,6 +2162,7 @@ class Core:
             self.usb_root = (data.get("usb_root") or "").strip()
             self.acoustid_key = (data.get("acoustid_key") or "").strip()
             self.lang = (data.get("lang") or "en").strip() or "en"
+            self.lang_set = bool((data.get("lang") or "").strip())
             self.last_vault_nml_hash = data.get("last_vault_nml_hash") or ""
         except FileNotFoundError:
             pass
@@ -2177,7 +2178,7 @@ class Core:
             json_save_atomic(p, {"music_folder": self.music_folder,
                                  "usb_root": self.usb_root,
                                  "acoustid_key": self.acoustid_key,
-                                 "lang": getattr(self, "lang", "en"),
+                                 "lang": getattr(self, "lang", "en") if getattr(self, "lang_set", False) else "",
                                  "last_vault_nml_hash": getattr(self, "last_vault_nml_hash", "")},
                              ensure_ascii=False, indent=2)
         except Exception:
@@ -2185,6 +2186,7 @@ class Core:
 
     def set_lang(self, lang):
         self.lang = "fr" if (lang or "").strip().lower() == "fr" else "en"
+        self.lang_set = True
         self._save_config()
         return {"ok": True, "lang": self.lang}
 
@@ -2434,8 +2436,8 @@ class Core:
     # ===== Journal des sauvegardes (date + état de référence par type) =====
     BACKUP_KINDS = [
         ("spare", "Clé de secours"),
-        ("structure", "Sauvegarde de structure"),
-        ("m3u", "Coffre-fort de playlists"),
+        ("structure", "Structure"),
+        ("m3u", "Coffre-fort M3U"),
         ("full", "Sauvegarde complète"),
     ]
 
@@ -2625,6 +2627,8 @@ class Core:
             "usb_configured": bool(self.usb_root and os.path.isdir(self.usb_root)),
             "acoustid_key": self.acoustid_key,
             "lang": getattr(self, "lang", "en"),
+            # langue jamais choisie : l'interface prend celle du système
+            "lang_set": bool(getattr(self, "lang_set", False)),
             "fpcalc": find_fpcalc() or "",
             "ffmpeg": find_ffmpeg() or "",
             "free": free,
@@ -3631,8 +3635,10 @@ class Core:
         if not root or not os.path.isdir(root):
             return {"changed": False}
         cur = nml_hash(root)
-        changed = bool(cur) and cur != getattr(self, "last_vault_nml_hash", "")
-        return {"changed": changed}
+        last = getattr(self, "last_vault_nml_hash", "")
+        changed = bool(cur) and cur != last
+        # « never » : aucun coffre-fort n'a jamais été généré (premier passage)
+        return {"changed": changed, "never": changed and not last}
 
     def enrich_cancel(self):
         self._en_cancel = True

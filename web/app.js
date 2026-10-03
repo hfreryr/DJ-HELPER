@@ -30,7 +30,9 @@ function showView(v, name){
   if (v === 'sync') renderSyncSource();
   if (v === 'home') refreshHome();
   if (v === 'dup' && scannedOnce && !dupShown) scanDuplicates();
-  if (v === 'integ'){ updateIntegAckeyHint(); refreshBackups(); }
+  if (v === 'integ') updateIntegAckeyHint();
+  if (v === 'tags') updateEnrichPrereq();
+  if (v === 'sync') refreshBackups();
   document.querySelector('.main').scrollTop = 0;
 }
 items.forEach(it => it.addEventListener('click', () => {
@@ -117,12 +119,12 @@ async function refreshHome(){
     $('dash-sub').textContent = folderName(st.music_folder)
       + (st.free ? ' · ' + st.free + ' libres' : '');
     $('tile-free').textContent = st.free || '—';
-    $('tile-free-meta').textContent = st.total ? ('sur ' + st.total) : '';
+    $('tile-free-meta').textContent = st.total ? (t('sur') + ' ' + st.total) : '';
     $('tile-count').textContent = st.count ? format(st.count) : '…';
-    $('cfg-music').textContent = st.music_folder || '—';
+    $('cfg-music').innerHTML = st.music_folder ? pathHtml(st.music_folder) : '—';
     const cu = $('cfg-usb');
     if (st.usb_configured){
-      cu.textContent = st.usb_root;
+      cu.innerHTML = pathHtml(st.usb_root);
       cu.classList.remove('missing');
       $('cfg-usb-btn').textContent = 'Modifier';
     } else {
@@ -215,7 +217,7 @@ async function scanDuplicates(){
     $('dup-empty').textContent = (res && res.error)
       ? res.error : "Choisis d'abord ton dossier sur l'accueil.";
     $('dup-empty').style.display = 'block';
-    $('dup-count').textContent = '—';
+    $('dup-count').textContent = '';
     return;
   }
   renderDuplicates(res.groups);
@@ -246,7 +248,7 @@ async function scanDuplicatesAudio(){
   if (!begin || !begin.ok){
     $('dup-empty').textContent = (begin && begin.error) ? begin.error : 'Erreur';
     $('dup-empty').style.display = 'block';
-    $('dup-count').textContent = '—';
+    $('dup-count').textContent = '';
     $('btn-scan-dup').disabled = false;
     return;
   }
@@ -430,6 +432,9 @@ async function chooseMaster(path){
 // ---------- utils ----------
 function format(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0'); }
 function folderName(p){ if(!p) return ''; const parts = p.replace(/[\\/]+$/,'').split(/[\\/]/); return parts[parts.length-1] || p; }
+// chemin affichable : coupe seulement après les « / » ou « \ » (avant :
+// « …/Volume s/FRASANDISK », coupé au milieu d'un mot)
+function pathHtml(p){ return esc(p).replace(/([\/\\])/g, '$1<wbr>'); }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ---------- intégrité ----------
@@ -449,6 +454,7 @@ async function refreshBackups(){
     $('bk-djh').textContent = (r && r.error) ? r.error : '—';
     $('bk-trk').textContent = '';
     $('bk-clean').style.display = 'none';
+    $('bk-clean').parentElement.style.display = 'none';
     return;
   }
   const d = r.djhelper, k = r.traktor;
@@ -457,6 +463,7 @@ async function refreshBackups(){
   $('bk-trk').textContent = 'Traktor (Backup/Collection) : ' + k.count + ' sauvegarde(s), ' + k.mb + ' Mo.';
   bkTraktorExcess = Math.max(0, k.count - BK_KEEP_TRAKTOR);
   $('bk-clean').style.display = bkTraktorExcess ? '' : 'none';
+  $('bk-clean').parentElement.style.display = bkTraktorExcess ? '' : 'none';   // pas de ligne vide
   $('bk-clean').textContent = 'Faire le ménage des sauvegardes Traktor (' + bkTraktorExcess + ' en trop)…';
 }
 function bkAskConfirm(){
@@ -563,7 +570,7 @@ async function scanIntegrity(){
     $('integ-empty').textContent = (begin && begin.error)
       ? begin.error : "Choisis d'abord ton dossier sur l'accueil.";
     $('integ-empty').style.display = 'block';
-    $('integ-count').textContent = '—';
+    $('integ-count').textContent = '';
     return;
   }
   if (isDeep) $('btn-integ-stop').style.display = '';
@@ -589,7 +596,7 @@ async function scanIntegrity(){
   if (!res || !res.ok){
     $('integ-empty').textContent = (res && res.error) ? res.error : 'Erreur';
     $('integ-empty').style.display = 'block';
-    $('integ-count').textContent = '—';
+    $('integ-count').textContent = '';
     return;
   }
   renderIntegrity(res);
@@ -638,7 +645,7 @@ async function scanTags(){
     $('tags-empty').textContent = (res && res.error)
       ? res.error : "Choisis d'abord ton dossier sur l'accueil.";
     $('tags-empty').style.display = 'block';
-    $('tags-count').textContent = '—';
+    $('tags-count').textContent = '';
     return;
   }
   renderTags(res);
@@ -671,14 +678,23 @@ function renderTags(res){
   const lost = res.lost_list || [];
   tagsLost = lost;
   $('tile-lost').classList.toggle('clickable', lost.length > 0);
+  makeKeyboardable($('tile-lost').parentElement);
   $('tile-lost').style.cursor = lost.length ? 'pointer' : '';
   $('tags-lost-list').style.display = 'none';
   $('tags-lost-list').innerHTML = '';
   if (!html){
     let msg;
     if (res.total === 0) msg = 'Aucun fichier audio trouvé.';
-    else msg = 'Tous tes fichiers sont déjà bien taggés. Rien à faire. 👌';
-    root.innerHTML = '<div class="empty">' + esc(msg) + '</div>';
+    else if (!lost.length) msg = 'Tous tes fichiers sont déjà bien taggés. Rien à faire. 👌';
+    else {
+      // ne pas dire « tout est bon » à côté de « Non identifiables : N »
+      root.innerHTML = '<div class="empty">' + esc(t('Rien à corriger automatiquement.')) + ' '
+        + '<span class="num-link" id="tags-lost-link">' + lost.length + ' '
+        + esc(t('fichier(s) à traiter à la main')) + ' ▸</span></div>';
+      $('tags-lost-link').addEventListener('click', toggleTagsLost);
+      return;
+    }
+    root.innerHTML = '<div class="empty">' + esc(t(msg)) + '</div>';
     return;
   }
   root.innerHTML = html;
@@ -772,7 +788,9 @@ function renderImport(res){
   if (res.missing.length){
     html += '<div class="imp-section" id="imp-sec-missing"><h3>Manquants — à récupérer</h3>'
       + res.missing.map(m => '<div class="imp-row"><span class="q">' + esc(m.query) + '</span>'
-          + (m.best ? '<span class="imp-best">plus proche sur la clé : « ' + esc(m.best) + ' » (' + m.best_score + ' %)</span>' : '')
+          // suggestion seulement si elle a une chance d'être la bonne (avant :
+          // affichée même à 41 %, sans rapport avec la recherche)
+          + (m.best && m.best_score >= 60 ? '<span class="imp-best">' + esc(t('plus proche sur la clé :')) + ' « ' + esc(m.best) + ' » <span class="nowrap">(' + m.best_score + ' %)</span></span>' : '')
           + '</div>').join('')
       + '</div>';
   }
@@ -810,7 +828,7 @@ async function updateBackups(){
     return '<div class="tile clickable bk-tile" data-go="sync">'
       + '<div class="lab"><span class="bk-dot" style="background:' + m.col + '"></span> ' + esc(it.label) + '</div>'
       + '<div class="bk-state" style="color:' + m.col + '">' + m.txt + '</div>'
-      + '<div class="meta">' + (it.last ? fmtDate(it.last) : '—') + '</div>'
+      + '<div class="meta">' + (it.last ? fmtDate(it.last) : esc(t('jamais faite'))) + '</div>'
       + '</div>';
   }).join('');
   $('bk-list').querySelectorAll('.bk-tile').forEach(r =>
@@ -833,6 +851,7 @@ async function updateHomeTiles(){
   $('tile-lowq-meta').textContent = '< ' + s.low_quality_th + ' kbps';
   lowqList = s.low_quality_list || [];
   lq.closest('.tile').classList.toggle('clickable', lowqList.length > 0);
+  makeKeyboardable(lq.closest('.tiles'));
   const mt = $('tile-missing');
   mt.textContent = s.missing_tags;
   mt.style.color = s.missing_tags ? 'var(--warning)' : 'var(--success)';
@@ -852,8 +871,35 @@ async function updateIntegAckeyHint(){
   const hasKey = !!(st.acoustid_key || '').trim();
   const h = $('ackey-missing-hint');
   if (h) h.style.display = hasKey ? 'none' : 'block';
-  if (!st.fpcalc) $('acoustid-count').textContent = 'fpcalc non détecté — voir Configuration sur l’accueil';
+  // bouton inutilisable tant qu'un prérequis manque (avant : actif, puis échec au clic)
+  $('btn-acoustid').disabled = !(hasKey && st.fpcalc);
+  showFpcalcMissing('acoustid-count', !st.fpcalc);
 }
+
+// « Identifier » (onglet Tags) a les mêmes prérequis que la vérification AcoustID
+async function updateEnrichPrereq(){
+  if (!API) return;
+  const st = await API.get_state();
+  const ok = !!((st.acoustid_key || '').trim() && st.fpcalc);
+  $('btn-enrich').disabled = !ok;
+  if (!st.fpcalc) showFpcalcMissing('enrich-count', true);
+  else if (!(st.acoustid_key || '').trim())
+    $('enrich-count').innerHTML = '<span class="num-link warn go-config">' + esc(t('Clé AcoustID manquante — à définir dans la Configuration')) + ' ▸</span>';
+}
+
+// « fpcalc non détecté » : lien vers la carte Configuration de l'accueil
+function showFpcalcMissing(chipId, missing){
+  const el = $(chipId);
+  if (!el || !missing) return;
+  el.innerHTML = '<span class="num-link warn go-config">' + esc(t('fpcalc non détecté — voir Configuration sur l’accueil')) + ' ▸</span>';
+}
+function goConfig(){
+  navTo('home');
+  setTimeout(() => { const c = $('cfg-card'); if (c) c.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 250);
+}
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.closest && e.target.closest('.go-config')) goConfig();
+});
 
 function setAckeyMode(hasKey){
   const row = $('ackey-row'), set = $('ackey-set');
@@ -868,9 +914,7 @@ async function loadAcoustidKey(){
   const inp = $('acoustid-key');
   if (inp && st.acoustid_key !== undefined) inp.value = st.acoustid_key || '';
   setAckeyMode(!!(st.acoustid_key || '').trim());
-  if (!st.fpcalc){
-    $('acoustid-count').textContent = 'fpcalc non détecté — voir Configuration sur l’accueil';
-  }
+  showFpcalcMissing('acoustid-count', !st.fpcalc);
 }
 
 async function saveAcoustidKey(){
@@ -1232,7 +1276,7 @@ async function renderSyncSource(){
   if (!API) return;
   const st = await API.get_state();
   if (st.usb_configured){
-    $('src-path').textContent = 'Clé entière : ' + st.usb_root;
+    $('src-path').innerHTML = esc(t('Clé entière :')) + ' ' + pathHtml(st.usb_root);
     $('btn-reset-usb').style.display = '';
   } else {
     $('src-path').textContent = 'Ton dossier audio' + (st.music_folder ? ' (' + folderName(st.music_folder) + ')' : '');
@@ -1247,7 +1291,7 @@ async function pickUsbRoot(){
     await renderSyncSource();
     // un changement de source invalide le plan en cours
     lastPlan = null; $('btn-sync-apply').style.display = 'none';
-    $('sync-results').innerHTML = ''; $('sync-count').textContent = '—';
+    $('sync-results').innerHTML = ''; $('sync-count').textContent = '';
   }
 }
 
@@ -1256,7 +1300,7 @@ async function resetUsbRoot(){
   await API.reset_usb_root();
   await renderSyncSource();
   lastPlan = null; $('btn-sync-apply').style.display = 'none';
-  $('sync-results').innerHTML = ''; $('sync-count').textContent = '—';
+  $('sync-results').innerHTML = ''; $('sync-count').textContent = '';
 }
 
 async function pickStructDest(){
@@ -1340,11 +1384,11 @@ async function pickSpare(){
   const res = await API.pick_spare_folder();
   if (res && res.ok){
     spareFolder = res.path;
-    $('spare-path').textContent = res.path;
+    $('spare-path').innerHTML = pathHtml(res.path);
     $('btn-sync-plan').disabled = false;
     $('btn-sync-apply').style.display = 'none';
     $('sync-results').innerHTML = '';
-    $('sync-count').textContent = '—';
+    $('sync-count').textContent = '';
     lastPlan = null;
   }
 }
@@ -1388,7 +1432,7 @@ function renderSyncPlan(res){
       + (res.n_copy > 200 ? '<div class="empty">… et ' + (res.n_copy - 200) + ' autres</div>' : '') + '</div>';
   }
   if (res.n_delete){
-    const list = res.to_delete.slice(0, 200).map(f => '<div class="imp-row"><span class="q">' + esc(f) + '</span><span class="m"><b>supprimé</b></span></div>').join('');
+    const list = res.to_delete.slice(0, 200).map(f => '<div class="imp-row"><span class="q">' + esc(f) + '</span><span class="m"><b>' + esc(t('sera supprimé')) + '</b></span></div>').join('');
     html += '<div class="imp-section"><h3>À supprimer de la clé de secours (' + res.n_delete + ')</h3>' + list
       + (res.n_delete > 200 ? '<div class="empty">… et ' + (res.n_delete - 200) + ' autres</div>' : '') + '</div>';
   }
@@ -1606,7 +1650,7 @@ function toggleStatusPopup(){
     return '<div class="status-item" data-nav="' + esc(it.nav || '') + '">'
       + '<span class="si-dot" style="background:' + col + '"></span>'
       + '<div><div class="si-lab">' + esc(it.label) + '</div>'
-      + '<div class="si-det">' + esc(it.detail) + '</div></div></div>';
+      + '<div class="si-det">' + pathHtml(it.detail) + '</div></div></div>';
   }).join('');
   p.innerHTML = '<div class="sp-title">État du système</div>' + rows;
   p.querySelectorAll('.status-item').forEach(el => el.addEventListener('click', () => {
@@ -1743,6 +1787,8 @@ function rvCurrent(){
 function rvRenderItem(){
   const it = rvCurrent();
   $('rv-fill').style.width = rvTotal ? Math.round(100 * rvDone / rvTotal) + '%' : '0%';
+  // la barre seule (vide au départ) se lisait comme un trait parasite
+  $('rv-progress-txt').textContent = rvTotal ? rvDone + ' / ' + rvTotal + ' ' + t('traités') : '';
   if (!it){
     $('review-main').style.display = 'none';
     if (!rvItems.length) $('review-alldone').style.display = 'block';
@@ -1751,11 +1797,18 @@ function rvRenderItem(){
   $('review-alldone').style.display = 'none';
   $('review-main').style.display = 'block';
   $('rv-prio').textContent = it.priority;
-  $('rv-artist').textContent = it.artist || '—';
-  $('rv-title').textContent = it.title || '—';
-  $('rv-bpm').textContent = it.bpm || '—';
-  $('rv-genre').textContent = it.genre || '—';
-  $('rv-year').textContent = it.year || '—';
+  // ce qu'on ne sait pas n'est pas affiché (avant : « — — Track 07 »,
+  // « — BPM · proposé : — · année — »)
+  $('rv-artist').textContent = it.artist || t('Artiste inconnu');
+  $('rv-artist').classList.toggle('unknown', !it.artist);
+  $('rv-title').textContent = it.title || t('Titre inconnu');
+  $('rv-title').classList.toggle('unknown', !it.title);
+  const meta = [];
+  if (it.bpm) meta.push(esc(it.bpm) + ' BPM');
+  if (it.genre) meta.push(esc(t('genre')) + ' : <b>' + esc(it.genre) + '</b>');
+  if (it.year) meta.push(esc(t('année')) + ' <b>' + esc(it.year) + '</b>');
+  $('rv-meta').innerHTML = meta.join(' · ');
+  $('rv-meta').style.display = meta.length ? '' : 'none';
   const srcEl = $('rv-src');
   if (it.genre_src){
     srcEl.textContent = '✓ Proposé par ' + it.genre_src;
@@ -1818,7 +1871,7 @@ function rvRenderItem(){
   }
   sel.value = it.genre || '';
   $('rv-year-input').value = '';
-  $('rv-year-input').placeholder = it.year ? String(it.year) : 'Année';
+  $('rv-year-input').placeholder = it.year ? String(it.year) : t('Année');
   rvMark = it.mark || '';
   document.querySelectorAll('.rv-mark').forEach(b => {
     b.classList.toggle('on', b.dataset.mark === rvMark);
@@ -1988,7 +2041,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.15';
+const APP_VERSION = 'v1.5.16';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
@@ -1997,7 +2050,14 @@ async function boot(){
   // langue : lue depuis la config AVANT tout rendu (défaut anglais)
   try {
     const st = await API.get_state();
-    LANG = (st && st.lang === 'fr') ? 'fr' : 'en';
+    if (st && !st.lang_set){
+      // premier lancement : langue du système (avant : anglais d'office)
+      const sys = (navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+      try { await API.set_lang(sys); } catch (e){}
+      LANG = sys;
+    } else {
+      LANG = (st && st.lang === 'fr') ? 'fr' : 'en';
+    }
   } catch (e){ LANG = 'en'; }
   translateDom();
   startI18nObserver();
@@ -2009,7 +2069,7 @@ async function boot(){
   refreshHome();
   try {
     const v = await API.vault_check();
-    if (v && v.changed) showVaultPrompt('start');
+    if (v && v.changed) showVaultPrompt('start', v.never);
   } catch (e){}
 }
 if (window.pywebview && window.pywebview.api){
@@ -2022,15 +2082,19 @@ if (window.pywebview && window.pywebview.api){
 // ---------- fermeture : coffre-fort M3U à jour ? ----------
 let vaultMode = 'quit';
 let vaultBusy = false;
-function showVaultPrompt(mode){
+function showVaultPrompt(mode, never){
   if (vaultBusy){ $('vault-modal').style.display = 'flex'; return; }
   vaultMode = mode || 'quit';
   const box = $('vault-modal');
-  box.querySelector('.modal-text').textContent = (vaultMode === 'quit')
-    ? 'Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant avant de quitter ?'
-    : 'Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant ?';
+  box.querySelector('.modal-text').textContent = never
+    // premier passage : il n'y a pas de « dernière sauvegarde » à comparer
+    ? 'Aucun coffre-fort de playlists pour l’instant : il garde une copie lisible (M3U) de toutes tes playlists Traktor sur la clé. Le créer maintenant ?'
+    : (vaultMode === 'quit')
+      ? 'Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant avant de quitter ?'
+      : 'Ta collection Traktor a changé depuis la dernière sauvegarde du coffre-fort (playlists, classement ou cues). Régénérer le coffre-fort M3U maintenant ?';
   $('btn-vq-skip').textContent = (vaultMode === 'quit') ? 'Quitter sans régénérer' : 'Plus tard';
-  $('btn-vq-regen').textContent = (vaultMode === 'quit') ? 'Régénérer et quitter' : 'Régénérer';
+  $('btn-vq-regen').textContent = never ? 'Créer' : (vaultMode === 'quit') ? 'Régénérer et quitter' : 'Régénérer';
+  box.querySelector('.modal-title').textContent = never ? 'Créer le coffre-fort M3U ?' : 'Mettre à jour le coffre-fort M3U ?';
   ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = false);
   $('btn-vq-cancel').style.display = (vaultMode === 'quit') ? '' : 'none';
   box.style.display = 'flex';
@@ -2107,3 +2171,29 @@ $('rename-count').addEventListener('click', (e) => {
 $('imp-review').closest('.tile').addEventListener('click', () => scrollToEl('imp-sec-review'));
 $('imp-missing').closest('.tile').addEventListener('click', () => scrollToEl('imp-sec-missing'));
 $('tags-fix').closest('.tile').addEventListener('click', () => scrollToEl('tags-preview'));
+
+// ---------- clavier : tout ce qui est cliquable est atteignable au Tab ----------
+// Menu latéral, tuiles, liens-compteurs et lignes de fichiers sont des <div> :
+// sans tabindex ils étaient inaccessibles au clavier. Entrée/Espace = clic.
+const KBD_SEL = '.nav-item, .tile.clickable, .num-link, .unident-item[data-i], .rv-tile, '
+  + '.entry-alert, .ver, .status-item, .go-config, #btn-lang-fr, #btn-lang-en';
+function makeKeyboardable(root){
+  (root.querySelectorAll ? root.querySelectorAll(KBD_SEL) : []).forEach(el => {
+    if (el.tagName === 'BUTTON' || el.hasAttribute('tabindex')) return;
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'button');
+  });
+}
+makeKeyboardable(document);
+new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => {
+  if (n.nodeType === 1){ if (n.matches && n.matches(KBD_SEL)) makeKeyboardable(n.parentNode || document); makeKeyboardable(n); }
+}))).observe(document.body, {childList: true, subtree: true});
+window.addEventListener('keydown', (e) => {
+  const el = document.activeElement;
+  if (!el || el.getAttribute('role') !== 'button' || el.tagName === 'BUTTON') return;
+  if (e.key === 'Enter' || e.key === ' '){
+    e.preventDefault();
+    e.stopImmediatePropagation();     // pas de double action (raccourcis de l'onglet Tags)
+    el.click();
+  }
+}, true);
