@@ -237,6 +237,7 @@ Object.assign(I18N_EN, {
   "Erreurs d’identification (réseau, quota, fichier) — relance plus tard": "Identification errors (network, quota, file) — retry later",
   "Non identifiés par AcoustID — à vérifier à l’oreille": "Not identified by AcoustID — check by ear",
   "Sans tags — à taguer avant de pouvoir les renommer": "No tags — tag them before they can be renamed",
+  "Nom cible déjà pris — sans doute un doublon (voir l’onglet Doublons)": "Target name already taken — probably a duplicate (see the Duplicates tab)",
   "Plus tard": "Later",
   "Créer la playlist « À CLASSER » dans Traktor": "Create the “À CLASSER” playlist in Traktor",
   "Ferme Traktor avant de continuer. La playlist « À CLASSER » sera créée/régénérée dans collection.nml (sauvegarde automatique). Continuer ?": "Close Traktor before continuing. The “À CLASSER” playlist will be created/regenerated in collection.nml (automatic backup). Continue?",
@@ -489,6 +490,7 @@ Object.assign(I18N_EN, {
   "Erreurs d’identification (réseau, quota, fichier) — relance plus tard": "Identification errors (network, quota, file) — retry later",
   "Non identifiés par AcoustID — à vérifier à l’oreille": "Not identified by AcoustID — check by ear",
   "Sans tags — à taguer avant de pouvoir les renommer": "No tags — tag them before they can be renamed",
+  "Nom cible déjà pris — sans doute un doublon (voir l’onglet Doublons)": "Target name already taken — probably a duplicate (see the Duplicates tab)",
   "Erreur interne": "Internal error",
   "erreur inconnue": "unknown error",
   "Coche au moins une ligne.": "Tick at least one line.",
@@ -550,7 +552,11 @@ function _translateTextNode(node){
   const s = raw.trim();
   if (!s) return;
   if (Object.prototype.hasOwnProperty.call(I18N_EN, s)){
-    node.nodeValue = raw.replace(s, I18N_EN[s]);
+    // n'écrire QUE si le texte change : réécrire une valeur identique
+    // (« Genre… » -> « Genre… ») redéclenche l'observateur à l'infini et
+    // figeait l'onglet Tags en anglais
+    const v = raw.replace(s, I18N_EN[s]);
+    if (v !== raw) node.nodeValue = v;
     return;
   }
   let out = raw, changed = false;
@@ -561,7 +567,7 @@ function _translateTextNode(node){
   for (const [fr, en] of I18N_FRAGMENTS){
     if (out.includes(fr)){ out = out.split(fr).join(en); changed = true; }
   }
-  if (changed) node.nodeValue = out;
+  if (changed && out !== raw) node.nodeValue = out;
 }
 
 function translateDom(root){
@@ -574,7 +580,8 @@ function translateDom(root){
   (target.querySelectorAll ? target.querySelectorAll('[title],[placeholder]') : []).forEach(el => {
     ['title', 'placeholder'].forEach(a => {
       const v = el.getAttribute && el.getAttribute(a);
-      if (v && Object.prototype.hasOwnProperty.call(I18N_EN, v.trim())){
+      if (v && Object.prototype.hasOwnProperty.call(I18N_EN, v.trim())
+          && I18N_EN[v.trim()] !== v.trim()){
         el.setAttribute(a, I18N_EN[v.trim()]);
       }
     });

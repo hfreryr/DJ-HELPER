@@ -328,3 +328,17 @@ def test_learn_artist_uses_lookup_key_and_keeps_mirror(tmp_path, monkeypatch):
     assert "daftpunk" in table and "kavinsky" in table      # miroir préservé
     mirror = json.loads((usb / "DJHELPER_MEMOIRE.json").read_text(encoding="utf-8"))
     assert "kavinsky" in mirror and "daftpunk" in mirror
+
+
+def test_rename_scan_flags_existing_target_as_conflict(tmp_path, monkeypatch):
+    music = tmp_path / "Music"
+    _touch(str(music / "Daft Punk - One More Time.mp3"))
+    _touch(str(music / "Daft Punk - One More Time (1).mp3"))
+    c = _bare_core(music_folder=str(music))
+    c._rename_setup = lambda: (str(music), str(tmp_path), "K", None)
+    c._read_tags = lambda p: {"artist": "Daft Punk", "title": "One More Time",
+                              "bitrate": None, "duration": None}
+    c.rename_scan_begin()
+    res = c.rename_scan_step(100)["result"]
+    assert res["n_rename"] == 0
+    assert [x["name"] for x in res["conflicts"]] == ["Daft Punk - One More Time (1).mp3"]

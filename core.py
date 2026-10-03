@@ -4681,6 +4681,7 @@ class Core:
         self._rn_already = 0
         self._rn_notags = 0
         self._rn_notags_list = []
+        self._rn_conflicts = []
         self._rn_seen = {}
         return {"ok": True, "total": len(paths), "has_nml": bool(nml_path)}
 
@@ -4711,6 +4712,19 @@ class Core:
                 self._rn_already += 1
                 continue
             d = os.path.dirname(p)
+            # le nom cible est déjà pris par UN AUTRE fichier (souvent la copie
+            # « (1) » d'un original) : on ne propose pas un renommage voué à
+            # l'échec, on le signale comme doublon probable
+            existing = os.path.join(d, new)
+            if os.path.exists(existing):
+                try:
+                    same_file = os.path.samefile(existing, p)
+                except OSError:
+                    same_file = False
+                if not same_file:
+                    self._rn_conflicts.append({"name": name, "path": p,
+                                               "sub": "« %s » existe déjà — doublon probable" % new})
+                    continue
             taken = self._rn_seen.setdefault(d, set())
             base, e = os.path.splitext(new)
             cand, k = new, 2
@@ -4743,6 +4757,7 @@ class Core:
             result = {"ok": True, "rows": self._rn_rows, "n_rename": len(self._rn_rows),
                       "n_already": self._rn_already, "n_no_tags": self._rn_notags,
                       "no_tags": self._rn_notags_list,
+                      "conflicts": self._rn_conflicts[:500],
                       "has_nml": bool(self._rn_nml_path)}
         return {"done": end, "total": len(paths), "finished": finished, "result": result}
 

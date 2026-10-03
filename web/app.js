@@ -1137,6 +1137,7 @@ async function discardImport(){
 
 // ---------- renommage ----------
 let renameNoTags = [];
+let renameConflicts = [];
 let renameRows = [];
 
 async function renameScan(){
@@ -1156,8 +1157,10 @@ async function renameScan(){
   let note = res.n_rename + ' à renommer · ' + res.n_already + ' déjà au format';
   if (!res.has_nml) note += ' · ⚠ sans suivi Traktor';
   $('rename-count').innerHTML = esc(note)
-    + (res.n_no_tags ? ' · <span class="num-link" data-list="notags">' + res.n_no_tags + ' sans tags ▸</span>' : '');
+    + (res.n_no_tags ? ' · <span class="num-link" data-list="notags">' + res.n_no_tags + ' sans tags ▸</span>' : '')
+    + ((res.conflicts || []).length ? ' · <span class="num-link" data-list="conflicts">' + res.conflicts.length + ' en conflit ▸</span>' : '');
   renameNoTags = res.no_tags || [];
+  renameConflicts = res.conflicts || [];
   if (renameRows.length){
     renderRenameTable();
     $('rename-results').style.display = 'block';
@@ -2093,8 +2096,13 @@ $('acoustid-count').addEventListener('click', (e) => {
 });
 $('rename-count').addEventListener('click', (e) => {
   const el = e.target && e.target.closest && e.target.closest('[data-list]');
-  if (el) toggleFileList($('rename-count'), 'rename-notags-list',
-                         'Sans tags — à taguer avant de pouvoir les renommer', renameNoTags);
+  if (!el) return;
+  if (el.dataset.list === 'conflicts')
+    toggleFileList($('rename-count'), 'rename-conflicts-list',
+                   'Nom cible déjà pris — sans doute un doublon (voir l’onglet Doublons)', renameConflicts);
+  else
+    toggleFileList($('rename-count'), 'rename-notags-list',
+                   'Sans tags — à taguer avant de pouvoir les renommer', renameNoTags);
 });
 $('imp-review').closest('.tile').addEventListener('click', () => scrollToEl('imp-sec-review'));
 $('imp-missing').closest('.tile').addEventListener('click', () => scrollToEl('imp-sec-missing'));
