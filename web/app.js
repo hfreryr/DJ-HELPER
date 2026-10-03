@@ -31,7 +31,7 @@ function showView(v, name){
   if (v === 'home') refreshHome();
   if (v === 'tags') loadReview();
   if (v === 'dup' && scannedOnce && !dupShown) scanDuplicates();
-  if (v === 'integ') updateIntegAckeyHint();
+  if (v === 'integ'){ updateIntegAckeyHint(); refreshBackups(); }
   document.querySelector('.main').scrollTop = 0;
 }
 items.forEach(it => it.addEventListener('click', () => {
@@ -401,6 +401,48 @@ let integStop = false;
 // Garde-fou : entrées de répertoire illisibles. Une entrée que le système
 // liste mais ne peut pas lire arrête net un scan qui parcourt le dossier dans
 // l'ordre physique (import Traktor) : tout ce qui suit devient invisible.
+// --- Sauvegardes de collection.nml (DJ Helper / Traktor) ---
+const BK_KEEP_TRAKTOR = 10;
+let bkTraktorExcess = 0;
+async function refreshBackups(){
+  if (!API || !$('bk-card')) return;
+  let r = null;
+  try { r = await API.backups_overview(); } catch (e){ r = null; }
+  if (!r || !r.ok){
+    $('bk-djh').textContent = (r && r.error) ? r.error : '—';
+    $('bk-trk').textContent = '';
+    $('bk-clean').style.display = 'none';
+    return;
+  }
+  const d = r.djhelper, k = r.traktor;
+  $('bk-djh').textContent = 'DJ Helper : ' + d.count + ' sauvegarde(s), ' + d.mb
+    + ' Mo — les ' + r.keep_djhelper + ' plus récentes sont gardées automatiquement.';
+  $('bk-trk').textContent = 'Traktor (Backup/Collection) : ' + k.count + ' sauvegarde(s), ' + k.mb + ' Mo.';
+  bkTraktorExcess = Math.max(0, k.count - BK_KEEP_TRAKTOR);
+  $('bk-clean').style.display = bkTraktorExcess ? '' : 'none';
+  $('bk-clean').textContent = 'Faire le ménage des sauvegardes Traktor (' + bkTraktorExcess + ' en trop)…';
+}
+function bkAskConfirm(){
+  $('bk-confirm-txt').textContent = 'Supprimer les ' + bkTraktorExcess
+    + ' plus anciennes et garder les ' + BK_KEEP_TRAKTOR + ' plus récentes ? ';
+  $('bk-confirm').style.display = '';
+  $('bk-clean').style.display = 'none';
+}
+async function bkDoClean(){
+  $('bk-confirm').style.display = 'none';
+  let r = null;
+  try { r = await API.traktor_backups_clean(BK_KEEP_TRAKTOR); } catch (e){ r = null; }
+  $('bk-msg').textContent = (r && r.ok)
+    ? '✓ ' + r.removed + ' sauvegarde(s) supprimée(s), ' + r.freed_mb + ' Mo libérés. ' + r.kept + ' gardée(s).'
+    : ((r && r.error) || 'Ménage impossible.');
+  refreshBackups();
+}
+if ($('bk-clean')){
+  $('bk-clean').addEventListener('click', bkAskConfirm);
+  $('bk-confirm-yes').addEventListener('click', bkDoClean);
+  $('bk-confirm-no').addEventListener('click', () => { $('bk-confirm').style.display = 'none'; refreshBackups(); });
+}
+
 async function checkDirEntries(){
   const box = $('integ-entries');
   if (!box) return;
@@ -1817,7 +1859,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.13';
+const APP_VERSION = 'v1.5.14';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){

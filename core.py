@@ -1185,6 +1185,144 @@ def bk_parse_traktor_playlist_tree(nml_path):
     return playlists, True
 
 
+# ---------------------------------------------------------------------------
+# Sauvegardes de collection.nml faites par DJ Helper
+# Toutes au même endroit : <dossier de collection.nml>/Backup/DJHelper/,
+# séparé de Backup/Collection/ (sauvegardes de Traktor lui-même).
+# Nom : collection_AAAA-MM-JJ_HHMMSS_<origine>.nml — trié = chronologique.
+# ---------------------------------------------------------------------------
+NML_BACKUP_KEEP = 10
+_NML_BAK_RE = re.compile(r"^collection_(\d{4}-\d{2}-\d{2}_\d{6})(?:_[a-z0-9-]+)?\.nml$")
+_TRAKTOR_BAK_RE = re.compile(r"^collection_\d{4}y\d{2}m\d{2}d_\d{2}h\d{2}m\d{2}s\.nml$")
+# anciens formats laissés à côté de collection.nml par les versions précédentes
+_LEGACY_BAK = [
+    (re.compile(r"^collection\.nml\.backup_(\d{8})_(\d{6})$"), True),
+    (re.compile(r"^collection_(\d{8})_(\d{6})\.nml\.bak$"), True),
+    (re.compile(r"^collection\.avant-validation-(\d{8})\.nml$"), False),
+]
+
+
+def nml_backup_dir(nml_path):
+    return os.path.join(os.path.dirname(os.path.abspath(nml_path)), "Backup", "DJHelper")
+
+
+def _nml_bak_key(name):
+    """Clé chronologique : (horodatage, n° d'ordre dans la seconde). Le tri
+    alphabétique brut se trompe quand plusieurs sauvegardes tombent dans la
+    même seconde (« -10 » avant « -2 », origines différentes)."""
+    m = _NML_BAK_RE.match(name)
+    seq = re.search(r"-(\d+)\.nml$", name)
+    return (m.group(1) if m else "", int(seq.group(1)) if seq else 1)
+
+
+def nml_backups_sorted(bdir):
+    try:
+        return sorted((f for f in os.listdir(bdir) if _NML_BAK_RE.match(f)), key=_nml_bak_key)
+    except OSError:
+        return []
+
+
+def nml_backup_rotate(bdir, keep=NML_BACKUP_KEEP, protect=None):
+    """Garde les `keep` sauvegardes les plus récentes (format DJ Helper
+    uniquement : aucun autre fichier n'est jamais touché). Renvoie le nombre
+    supprimé. Ne supprime jamais `protect` (la sauvegarde qui vient d'être faite)."""
+    files = nml_backups_sorted(bdir)
+    removed = 0
+    if len(files) <= keep:
+        return 0
+    prot = os.path.basename(protect) if protect else None
+    for f in files[:len(files) - keep]:
+        if f == prot:
+            continue
+        try:
+            os.remove(os.path.join(bdir, f))
+            removed += 1
+        except OSError:
+            pass
+    return removed
+
+
+def _nml_backup_unique(bdir, stamp, kind):
+    """Le n° d'ordre est commun à toutes les origines d'une même seconde :
+    c'est lui qui départage l'ordre chronologique."""
+    try:
+        same = [f for f in os.listdir(bdir) if f.startswith("collection_%s_" % stamp)]
+    except OSError:
+        same = []
+    k = len(same) + 1
+    while True:
+        name = ("collection_%s_%s.nml" % (stamp, kind) if k == 1
+                else "collection_%s_%s-%d.nml" % (stamp, kind, k))
+        if not os.path.exists(os.path.join(bdir, name)):
+            return os.path.join(bdir, name)
+        k += 1
+
+
+def nml_backup_migrate_legacy(nml_path, bdir):
+    """Range dans Backup/DJHelper les sauvegardes laissées à la racine par les
+    versions précédentes (renommage sur le même volume : rien n'est recopié
+    ni perdu). Best effort. Renvoie le nombre déplacé."""
+    src_dir = os.path.dirname(os.path.abspath(nml_path))
+    moved = 0
+    try:
+        names = os.listdir(src_dir)
+    except OSError:
+        return 0
+    for f in names:
+        for rx, has_time in _LEGACY_BAK:
+            m = rx.match(f)
+            if not m:
+                continue
+            d = m.group(1)
+            t = m.group(2) if has_time else "000000"
+            stamp = "%s-%s-%s_%s" % (d[:4], d[4:6], d[6:8], t)
+            try:
+                os.replace(os.path.join(src_dir, f), _nml_backup_unique(bdir, stamp, "ancien"))
+                moved += 1
+            except OSError:
+                pass
+            break
+    return moved
+
+
+def nml_backup_before_write(nml_path, kind):
+    """Filet de sécurité OBLIGATOIRE avant toute écriture de collection.nml.
+    Copie vérifiée (taille identique) dans Backup/DJHelper/, puis rotation.
+    Lève OSError si la copie n'est pas garantie : l'appelant doit alors
+    renoncer à écrire. Renvoie le chemin de la sauvegarde."""
+    import datetime, shutil
+    bdir = nml_backup_dir(nml_path)
+    os.makedirs(bdir, exist_ok=True)
+    try:
+        nml_backup_migrate_legacy(nml_path, bdir)
+    except Exception:
+        pass
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    dst = _nml_backup_unique(bdir, stamp, re.sub(r"[^a-z0-9-]", "", kind.lower()) or "dj")
+    tmp = dst + ".part"
+    try:
+        shutil.copy2(nml_path, tmp)
+        if os.path.getsize(tmp) != os.path.getsize(nml_path):
+            raise OSError("copie incomplète (espace disque ?)")
+        os.replace(tmp, dst)
+    except OSError:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
+        raise
+    try:
+        nml_backup_rotate(bdir, NML_BACKUP_KEEP, protect=dst)
+    except Exception:
+        pass
+    return dst
+
+
+def traktor_backup_dir(nml_path):
+    return os.path.join(os.path.dirname(os.path.abspath(nml_path)), "Backup", "Collection")
+
+
 def bk_find_collection_nml(root):
     """Cherche collection.nml sur la clé : racine, puis 1 et 2 niveaux en dessous."""
     direct = os.path.join(root, "collection.nml")
@@ -2344,6 +2482,69 @@ class Core:
             "size": size, "size_h": human_size(size),
         }
 
+    def _nml_for_backups(self):
+        try:
+            return bk_find_collection_nml(self.usb_root) if self.usb_root else None
+        except Exception:
+            return None
+
+    def backups_overview(self):
+        """État des deux dossiers de sauvegarde (DJ Helper et Traktor)."""
+        nml = self._nml_for_backups()
+        if not nml:
+            return {"ok": False, "error": "collection.nml introuvable : définis la "
+                                          "racine de ta clé (onglet Synchro)."}
+        out = {"ok": True}
+        for key, d, rx in (("djhelper", nml_backup_dir(nml), _NML_BAK_RE),
+                           ("traktor", traktor_backup_dir(nml), _TRAKTOR_BAK_RE)):
+            if key == "djhelper":
+                files = nml_backups_sorted(d)
+            else:
+                try:
+                    files = sorted(f for f in os.listdir(d) if rx.match(f))
+                except OSError:
+                    files = []
+            size = 0
+            for f in files:
+                try:
+                    size += os.path.getsize(os.path.join(d, f))
+                except OSError:
+                    pass
+            out[key] = {"dir": d, "count": len(files), "mb": round(size / 1e6, 1),
+                        "oldest": files[0] if files else "",
+                        "newest": files[-1] if files else ""}
+        out["keep_djhelper"] = NML_BACKUP_KEEP
+        return out
+
+    def traktor_backups_clean(self, keep=10):
+        """Supprime les sauvegardes de Traktor (Backup/Collection) au-delà des
+        `keep` plus récentes. Seuls les fichiers au format de Traktor sont
+        concernés ; `keep` ne descend jamais sous 3."""
+        nml = self._nml_for_backups()
+        if not nml:
+            return {"ok": False, "error": "collection.nml introuvable."}
+        try:
+            keep = max(3, int(keep))
+        except Exception:
+            keep = 10
+        d = traktor_backup_dir(nml)
+        try:
+            files = sorted(f for f in os.listdir(d) if _TRAKTOR_BAK_RE.match(f))
+        except OSError:
+            return {"ok": False, "error": "Dossier Backup/Collection introuvable."}
+        removed, freed = 0, 0
+        for f in files[:max(0, len(files) - keep)]:
+            p = os.path.join(d, f)
+            try:
+                sz = os.path.getsize(p)
+                os.remove(p)
+                removed += 1
+                freed += sz
+            except OSError:
+                pass
+        return {"ok": True, "removed": removed, "kept": len(files) - removed,
+                "freed_mb": round(freed / 1e6, 1)}
+
     def check_dir_entries(self):
         """Garde-fou 1 : entrées de répertoire illisibles dans le Music Folder."""
         d = self.music_folder
@@ -2547,11 +2748,8 @@ class Core:
                 nml_text = f.read()
         except Exception as e:
             return {"ok": False, "error": "Lecture collection.nml impossible : %s" % e}
-        nml_bak = (nml_path[:-4] if nml_path.lower().endswith(".nml") else nml_path) \
-            + "_%s.nml.bak" % ts
         try:
-            with open(nml_bak, "w", encoding="utf-8") as f:
-                f.write(nml_text)
+            nml_bak = nml_backup_before_write(nml_path, "doublons")
         except Exception as e:
             return {"ok": False, "error": "Sauvegarde collection.nml impossible : %s" % e}
         new_text, stats = fix_duplicates_via_playlists(
@@ -2631,11 +2829,8 @@ class Core:
             return {"ok": True, "added": len(keys), "skipped": skipped,
                     "existed": existed, "unchanged": True, "playlist": ORPHANS_PLAYLIST_NAME}
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        nml_bak = (nml_path[:-4] if nml_path.lower().endswith(".nml") else nml_path) \
-            + "_%s.nml.bak" % ts
         try:
-            with open(nml_bak, "w", encoding="utf-8") as f:
-                f.write(nml_text)
+            nml_bak = nml_backup_before_write(nml_path, "orphelins")
         except Exception as e:
             return {"ok": False, "error": "Sauvegarde de collection.nml impossible : %s" % e}
         try:
@@ -4025,6 +4220,7 @@ class Core:
             stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
             nml_backup = os.path.join(bak_dir, "collection_%s.nml" % stamp)
             _sh.copy2(nml, nml_backup)
+            nml_backup_rotate(bak_dir, NML_BACKUP_KEEP, protect=nml_backup)
         except OSError:
             nml_backup = None
         old_manifest = set()
@@ -4254,11 +4450,8 @@ class Core:
         nml_text = None
         nml_backup = None
         if nml_path and os.path.isfile(nml_path):
-            import datetime, shutil as _sh
-            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            nml_backup = nml_path + ".backup_" + ts
             try:
-                _sh.copy2(nml_path, nml_backup)
+                nml_backup = nml_backup_before_write(nml_path, "renommage")
                 with open(nml_path, encoding="utf-8", newline="") as f:
                     nml_text = f.read()
             except Exception as e:
@@ -4835,16 +5028,19 @@ class Core:
             return ""
 
     def _review_backup_nml(self, nml_path):
-        """Copie de sécurité avant la première écriture du jour."""
-        import shutil, time
-        tag = time.strftime("%Y%m%d")
-        dst = os.path.join(os.path.dirname(nml_path),
-                           "collection.avant-validation-%s.nml" % tag)
-        if not os.path.exists(dst):
-            try:
-                shutil.copy2(nml_path, dst)
-            except Exception:
-                pass
+        """Sauvegarde avant la première écriture du jour (la file écrit un
+        morceau à la fois : une copie de 5 Mo par clic n'aurait pas de sens).
+        Lève OSError si elle échoue : la validation n'est alors pas écrite."""
+        import time
+        today = time.strftime("%Y-%m-%d")
+        bdir = nml_backup_dir(nml_path)
+        try:
+            done = any(f.startswith("collection_%s_" % today) and "_validation" in f
+                       for f in os.listdir(bdir))
+        except OSError:
+            done = False
+        if not done:
+            nml_backup_before_write(nml_path, "validation")
 
     def _review_write_nml(self, key, patch):
         """Écrit genre/année/énergie/marqueur sur l'ENTRY correspondant à la clé.
@@ -4858,7 +5054,10 @@ class Core:
                 nml = f.read()
         except Exception as e:
             return False, "lecture nml : %s" % e
-        self._review_backup_nml(nml_path)
+        try:
+            self._review_backup_nml(nml_path)
+        except Exception as e:
+            return False, "sauvegarde de collection.nml impossible, rien n'a été écrit : %s" % e
         loc_re = re.compile(r'<LOCATION DIR="([^"]*)" FILE="([^"]*)" VOLUME="([^"]*)"')
         entry_re = re.compile(r'(<ENTRY\b[^>]*>)(.*?)(</ENTRY>)', re.S)
         esc = lambda s: html.escape(str(s), quote=True)

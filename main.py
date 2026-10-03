@@ -147,6 +147,12 @@ class Api:
     def check_dir_entries(self):
         return self.core.check_dir_entries()
 
+    def backups_overview(self):
+        return self.core.backups_overview()
+
+    def traktor_backups_clean(self, keep=10):
+        return self.core.traktor_backups_clean(keep)
+
     def home_stats(self):
         return self.core.home_stats()
 

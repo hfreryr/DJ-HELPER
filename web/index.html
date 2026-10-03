@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DJ Helper</title>
-<link rel="stylesheet" href="style.css?v=1513">
+<link rel="stylesheet" href="style.css?v=1514">
 </head>
 <body>
 
@@ -495,6 +495,20 @@
         <button class="btn ghost" id="btn-integ-stop" style="display:none; color:var(--error); border-color:var(--error);">Arrêter</button>
         <span class="count-chip" id="integ-count">—</span>
       </div>
+      <div class="card bk-card" id="bk-card">
+        <div class="card-title">Sauvegardes de collection.nml</div>
+        <div class="bk-row" id="bk-djh">—</div>
+        <div class="bk-row" id="bk-trk">—</div>
+        <div class="toolbar" style="gap:8px; margin-top:10px;">
+          <button class="btn ghost" id="bk-clean">Faire le ménage des sauvegardes Traktor…</button>
+          <span id="bk-confirm" style="display:none;">
+            <span id="bk-confirm-txt"></span>
+            <button class="btn ghost bk-danger" id="bk-confirm-yes">Supprimer</button>
+            <button class="btn ghost" id="bk-confirm-no">Annuler</button>
+          </span>
+        </div>
+        <div class="bk-note" id="bk-msg"></div>
+      </div>
       <div id="integ-entries"></div>
       <div id="integ-list"></div>
       <div class="empty" id="integ-empty" style="display:none;">Choisis d'abord ton dossier sur l'accueil, puis lance l'analyse.</div>
@@ -627,7 +641,7 @@
       </div>
     </div>
   </div>
-<script src="i18n.js?v=1513"></script>
-  <script src="app.js?v=1513"></script>
+<script src="i18n.js?v=1514"></script>
+  <script src="app.js?v=1514"></script>
 </body>
 </html>
