@@ -104,15 +104,41 @@ def normalize_string(s, keep_versions=False):
     return s
 
 
-def parse_filename(stem):
-    """Extrait (artist, title) d'un nom 'Artiste - Titre', sinon (None, None)."""
-    cleaned = TRACK_NUMBER_PREFIX.sub("", stem)
-    parts = cleaned.split(" - ", 1)
+def _split_artist_title(s):
+    parts = (s or "").split(" - ", 1)
     if len(parts) == 2:
-        artist, title = parts[0].strip(), parts[1].strip()
-        if artist and title:
-            return artist, title
+        a, t = parts[0].strip(), parts[1].strip()
+        if a and t:
+            return a, t
     return None, None
+
+
+def parse_filename(stem):
+    """Extrait (artist, title) d'un nom 'Artiste - Titre', sinon (None, None).
+
+    Un nombre en tête n'est retiré comme numéro de piste que s'il en a la
+    forme : « 01 - Artiste - Titre », « 03. Artiste - Titre », « 01 Artiste
+    - Titre » (zéro initial). Sinon c'est l'artiste : « 113 - Tonton du
+    bled », « 50 Cent - In Da Club », « 3 Cafés Gourmands - Mistral Gagnant »."""
+    stem = stem or ""
+    m = TRACK_NUMBER_PREFIX.match(stem)
+    if not m:
+        return _split_artist_title(stem)
+    num = re.match(r"\d+", stem).group(0)
+    sep = stem[len(num):m.end()]
+    rest = stem[m.end():]
+    if "." in sep or "_" in sep:
+        return _split_artist_title(rest)                  # « 03. Artiste - Titre »
+    if "-" in sep:
+        if " - " in rest:
+            return _split_artist_title(rest)              # « 01 - Artiste - Titre »
+        if len(num) >= 3 and not num.startswith("0"):
+            return _split_artist_title(stem)              # « 113 - Tonton du bled »
+        return None, None                                 # « 01 - Intro »
+    # séparateur espace seul
+    if num.startswith("0"):
+        return _split_artist_title(rest)                  # « 01 Artiste - Titre »
+    return _split_artist_title(stem)                      # « 50 Cent - In Da Club »
 
 
 VERSION_SUFFIX = re.compile(
@@ -165,6 +191,13 @@ def match_candidates(artist, title):
         t2 = match_title_key(before, after)
         if a2 and t2 and (a2, t2) not in cands:
             cands.append((a2, t2))
+    # variante sans sous-titre après tiret : « Histoire d'1 soir - Bye bye les galères »
+    if " - " in raw:
+        main = raw.split(" - ", 1)[0]
+        if normalize_string(main) != na:
+            nt5 = match_title_key(artist, main)
+            if na and nt5 and (na, nt5) not in cands:
+                cands.append((na, nt5))
     # variante sans sous-titre entre parenthèses
     stripped = _strip_all_parens(raw)
     if stripped != raw:
@@ -3499,9 +3532,23 @@ class Core:
             q2 = match_title_key(artist, st_t)
             if q2 and q2 not in q_titles:
                 q_titles.append(q2)
+        if title and " - " in title:
+            q5 = match_title_key(artist, title.split(" - ", 1)[0])
+            if q5 and q5 not in q_titles:
+                q_titles.append(q5)
         q_titles = [q for q in q_titles if q]
-        if not q_artist or not q_titles:
+        if not q_titles:
             return None, 0
+        if not q_artist:
+            # ligne non découpable : comparer la ligne entière à « artiste titre »
+            q_full = normalize_string(title or "")
+            best, best_score = None, -1
+            for t in self.tracks:
+                for ca, ct in t.get("match_candidates", ()):
+                    sc = fuzz.token_sort_ratio(q_full, ("%s %s" % (ca, ct)).strip())
+                    if sc > best_score:
+                        best_score, best = sc, t
+            return best, int(max(best_score, 0))
         best = None
         best_score = -1
         for t in self.tracks:
