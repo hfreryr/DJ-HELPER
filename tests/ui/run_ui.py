@@ -199,6 +199,14 @@ async def behaviour_pass(p, url, root, home):
 async def main():
     if not os.path.exists(AXE_PATH):
         sys.exit("axe-core absent : lancer « npm ci » dans tests/ui")
+    # le serveur remplace HOME par un dossier jetable : figer AVANT l'endroit où
+    # Playwright a installé son navigateur (sinon il le cherche dans le faux HOME)
+    if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        cache = os.path.join("Library", "Caches") if sys.platform == "darwin" else ".cache"
+        if os.name == "nt":
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(os.environ.get("LOCALAPPDATA", ""), "ms-playwright")
+        else:
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(os.path.expanduser("~"), cache, "ms-playwright")
     work = tempfile.mkdtemp(prefix="djh-ui-")
     root = fixture.build(work)
     home = os.path.join(work, "home")
