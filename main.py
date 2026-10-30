@@ -228,6 +228,9 @@ class Api:
     def set_update_check(self, on):
         return self._core.set_update_check(on)
 
+    def set_kbd_shortcuts(self, on):
+        return self._core.set_kbd_shortcuts(on)
+
     def check_update(self, current, force=False):
         return self._core.check_update(current, force)
 

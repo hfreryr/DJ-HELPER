@@ -2289,6 +2289,7 @@ class Core:
         self.lang = "en"
         self.last_vault_nml_hash = ""
         self.update_check = True
+        self.kbd_shortcuts = True
         self.update_last = 0.0
         self.update_latest = ""
         self.tracks = []
@@ -2345,6 +2346,7 @@ class Core:
             self.lang_set = bool((data.get("lang") or "").strip())
             self.last_vault_nml_hash = data.get("last_vault_nml_hash") or ""
             self.update_check = data.get("update_check", True) is not False
+            self.kbd_shortcuts = data.get("kbd_shortcuts", True) is not False
             self.update_last = float(data.get("update_last") or 0)
             self.update_latest = str(data.get("update_latest") or "")[:20]
         except FileNotFoundError:
@@ -2364,6 +2366,7 @@ class Core:
                                  "lang": getattr(self, "lang", "en") if getattr(self, "lang_set", False) else "",
                                  "last_vault_nml_hash": getattr(self, "last_vault_nml_hash", ""),
                                  "update_check": bool(getattr(self, "update_check", True)),
+                                 "kbd_shortcuts": bool(getattr(self, "kbd_shortcuts", True)),
                                  "update_last": float(getattr(self, "update_last", 0) or 0),
                                  "update_latest": getattr(self, "update_latest", "")},
                              ensure_ascii=False, indent=2)
@@ -2377,6 +2380,12 @@ class Core:
     # SHA256SUMS + attestation de provenance). Désactivable dans l'accueil.
     UPDATE_API = "https://api.github.com/repos/hfreryr/dj-helper/releases/latest"
     UPDATE_PAGE = "https://github.com/hfreryr/dj-helper/releases/"
+
+    def set_kbd_shortcuts(self, on):
+        """Raccourcis à touche unique de l'onglet Tags (WCAG 2.1.4 : désactivables)."""
+        self.kbd_shortcuts = bool(on)
+        self._save_config()
+        return {"ok": True, "kbd_shortcuts": self.kbd_shortcuts}
 
     def set_update_check(self, on):
         self.update_check = bool(on)
@@ -2860,6 +2869,7 @@ class Core:
             # langue jamais choisie : l'interface prend celle du système
             "lang_set": bool(getattr(self, "lang_set", False)),
             "update_check": bool(getattr(self, "update_check", True)),
+            "kbd_shortcuts": bool(getattr(self, "kbd_shortcuts", True)),
             "fpcalc": find_fpcalc() or "",
             "fpcalc_error": fpcalc_health(),
             "ffmpeg": find_ffmpeg() or "",

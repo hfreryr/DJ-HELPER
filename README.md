@@ -68,6 +68,18 @@ ProtonDrive…): sync can serve stale files.
 - Licensing: DJ Helper is **GPL v3** (see `LICENSE`). Bundled binaries —
   ffmpeg (GPL build) and fpcalc/Chromaprint — keep their respective licenses.
 
+## Accessibility
+
+DJ Helper targets **WCAG 2.2 AA**. Status on 2026-10-30 (v1.5.20):
+
+- **Automated check**: 0 axe-core issues on the 10 tested screens (home, tags, import, unsorted, duplicates, integrity, sync, status, dialog).
+- **Keyboard**: everything works without a mouse; "Skip to content" link; the quit dialog keeps focus and closes with Esc.
+- **Screen readers**: page and section headings, labelled fields, results, progress and messages announced, readable ⓘ help.
+- **Tags tab shortcuts** (space, 1–6, R, →): only active inside the review card, can be turned off (remembered).
+- **200 % zoom**: single-column layout, no horizontal scrolling; reduced motion respected.
+
+**Known limits**: not yet tested by a VoiceOver (macOS) or NVDA (Windows) user; the audio player uses the system's native controls. Found an accessibility problem? Open an issue with your system and assistive technology.
+
 ## Troubleshooting
 
 | Symptom | Fix |

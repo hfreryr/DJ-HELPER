@@ -11,6 +11,94 @@ let lastPlan = null;
 
 function $(id){ return document.getElementById(id); }
 
+// ---------- accessibilité (audit, lot 3) ----------
+// A5 : annonces aux lecteurs d'écran (région polie / urgente), sans emoji lus à voix haute
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu;
+function announce(msg, urgent){
+  const el = $(urgent ? 'sr-alert' : 'sr-status');
+  if (!el) return;
+  const txt = String(msg || '').replace(EMOJI_RE, '').replace(/\s+/g, ' ').trim();
+  el.textContent = '';
+  clearTimeout(el._t);                                 // la dernière annonce l'emporte
+  el._t = setTimeout(() => { el.textContent = txt; }, 60);   // vider puis écrire : relu même si identique
+}
+// A10 : SVG décoratifs ignorés ; A8 : icônes ⓘ en vrais boutons d'aide
+let _a11ySeq = 0;
+function a11yEnhance(root){
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('svg:not([aria-hidden]):not([role])').forEach(sv => {
+    sv.setAttribute('aria-hidden', 'true'); sv.setAttribute('focusable', 'false');
+  });
+  root.querySelectorAll('.info:not([data-a11y])').forEach(el => {
+    const tip = el.querySelector('.tip');
+    if (!tip) return;
+    el.dataset.a11y = '1';
+    tip.id = tip.id || ('tip-' + (++_a11ySeq));
+    tip.setAttribute('role', 'tooltip');
+    // contexte : le libellé à côté duquel l'icône est posée
+    const host = el.parentNode;
+    let ctx = '';
+    if (host) for (const n of host.childNodes){ if (n.nodeType === 3 && n.nodeValue.trim()){ ctx = n.nodeValue.trim(); break; } }
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', t('Aide') + (ctx ? ' : ' + ctx : ''));
+    el.setAttribute('aria-describedby', tip.id);
+    el.setAttribute('aria-expanded', 'false');
+  });
+  // informations portées par le seul « title » : exposées en description
+  root.querySelectorAll('button[title]:not([aria-describedby]), [role="button"][title]:not([aria-describedby])').forEach(el => {
+    const v = (el.getAttribute('title') || '').trim();
+    if (!v || v === (el.textContent || '').trim()) return;
+    el.setAttribute('aria-describedby', srDescId(v));
+  });
+}
+const _srDesc = new Map();
+function srDescId(text){
+  if (_srDesc.has(text)) return _srDesc.get(text);
+  let box = $('sr-desc');
+  if (!box){ box = document.createElement('div'); box.id = 'sr-desc'; box.hidden = true; document.body.appendChild(box); }
+  const sp = document.createElement('span');
+  sp.id = 'desc-' + (++_a11ySeq); sp.textContent = text; box.appendChild(sp);
+  _srDesc.set(text, sp.id);
+  return sp.id;
+}
+function closeTips(except){
+  document.querySelectorAll('.info.open').forEach(x => {
+    if (x === except) return;
+    x.classList.remove('open'); x.setAttribute('aria-expanded', 'false');
+  });
+}
+// ouverture au clic / toucher (pas seulement au survol), une seule à la fois
+document.addEventListener('click', (e) => {
+  const info = e.target.closest && e.target.closest('.info');
+  closeTips(info);
+  if (!info) return;
+  e.preventDefault(); e.stopPropagation();
+  const open = !info.classList.contains('open');
+  info.classList.toggle('open', open);
+  info.classList.remove('closed');
+  info.setAttribute('aria-expanded', String(open));
+}, true);
+// Échap ferme l'aide affichée (survol, focus ou clic) sans déplacer le pointeur (WCAG 1.4.13)
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.info.open, .info:hover, .info:focus').forEach(x => {
+    x.classList.remove('open'); x.classList.add('closed'); x.setAttribute('aria-expanded', 'false');
+  });
+});
+document.addEventListener('focusin', (e) => {
+  const info = e.target.closest && e.target.closest('.info.closed');
+  if (info) info.classList.remove('closed');
+});
+document.addEventListener('mouseout', (e) => {
+  const info = e.target.closest && e.target.closest('.info.closed');
+  if (info && !info.contains(e.relatedTarget)) info.classList.remove('closed');
+});
+document.addEventListener('focusout', (e) => {
+  const info = e.target.closest && e.target.closest('.info.open');
+  if (info && !info.contains(e.relatedTarget)){ info.classList.remove('open'); info.setAttribute('aria-expanded', 'false'); }
+});
+
 // ---------- navigation ----------
 const items = document.querySelectorAll('.nav-item');
 const views = {
@@ -34,6 +122,19 @@ function showView(v, name){
   if (v === 'tags') updateEnrichPrereq();
   if (v === 'sync') refreshBackups();
   document.querySelector('.main').scrollTop = 0;
+  viewMeta(v);
+}
+// A7 : titre de la fenêtre et entrée de menu courante
+function viewMeta(v){
+  const h = (views[v] || views.home).querySelector('h1:not([hidden])');
+  let name = '';
+  if (h) for (const n of h.childNodes){ if (n.nodeType === 3 && n.nodeValue.trim()){ name = n.nodeValue.trim(); break; } }
+  if (v === 'home') name = t('Accueil');
+  document.title = (name ? name + ' — ' : '') + 'DJ Helper';
+  items.forEach(i => {
+    if (i.dataset.view === v) i.setAttribute('aria-current', 'page');
+    else i.removeAttribute('aria-current');
+  });
 }
 items.forEach(it => it.addEventListener('click', () => {
   items.forEach(i => i.classList.remove('active'));
@@ -52,14 +153,17 @@ document.querySelectorAll('[data-go]').forEach(el => el.addEventListener('click'
 // ---------- progression ----------
 function showSpinner(loadingId, text){
   const el = $(loadingId);
-  el.innerHTML = '<span class="spinner"></span>' + esc(t(text || ''));
+  el.innerHTML = '<span class="spinner" aria-hidden="true"></span>' + esc(t(text || ''));
   el.style.display = 'block';
+  announce(t(text || ''));
 }
 function showProgress(loadingId, label){
   const el = $(loadingId);
-  el.innerHTML = '<div class="pbar"><div class="pfill"></div></div><div class="plabel"></div>';
+  el.innerHTML = '<div class="pbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="pfill"></div></div><div class="plabel"></div>';
+  el.querySelector('.pbar').setAttribute('aria-label', t(label || 'Progression'));
   el.style.display = 'block';
   setProgress(loadingId, 0, 0, label);
+  announce(t(label || ''));
 }
 function setProgress(loadingId, done, total, label){
   const el = $(loadingId); if (!el) return;
@@ -67,23 +171,34 @@ function setProgress(loadingId, done, total, label){
   const fill = el.querySelector('.pfill');
   const lab = el.querySelector('.plabel');
   if (fill) fill.style.width = pct + '%';
+  const bar = el.querySelector('.pbar');
+  if (bar) bar.setAttribute('aria-valuenow', String(pct));
   // label traduit AVANT concaténation : « Analyse… 42 % » ne correspond à
   // aucune clé du dictionnaire, l'observateur i18n ne pouvait pas le traduire
   if (lab) lab.textContent = (label ? t(label) + ' ' : '') + pct + ' %';
 }
 // Boucle générique : begin() -> {ok,total} ; step(n) -> {done,total,finished,result}
 function toast(msg){
-  let t = document.getElementById('djh-toast');
-  if (!t){
-    t = document.createElement('div');
-    t.id = 'djh-toast';
-    t.className = 'toast';
-    document.body.appendChild(t);
+  let el = document.getElementById('djh-toast');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'djh-toast';
+    el.className = 'toast';
+    el.innerHTML = '<span class="toast-msg"></span><button type="button" class="toast-x">×</button>';
+    el.querySelector('.toast-x').setAttribute('aria-label', t('Fermer'));
+    document.body.appendChild(el);
+    el.querySelector('.toast-x').addEventListener('click', () => el.classList.remove('show'));
+    // A5 : le message reste tant que la souris ou le focus est dessus
+    const hold = () => clearTimeout(el._h);
+    const resume = () => { clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('show'), 10000); };
+    el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', resume);
+    el.addEventListener('focusin', hold); el.addEventListener('focusout', resume);
   }
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.remove('show'), 6000);
+  el.querySelector('.toast-msg').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._h);
+  el._h = setTimeout(() => el.classList.remove('show'), 10000);
+  announce(msg);
 }
 
 async function runChunked(loadingId, label, beginFn, stepFn, chunk){
@@ -99,7 +214,10 @@ async function runChunked(loadingId, label, beginFn, stepFn, chunk){
   try {
     do {
       last = await stepFn(chunk);
-      if (!last || last.ok === false) return last || {ok: false, error: 'Erreur interne'};
+      if (!last || last.ok === false){
+        announce(t('Échec') + ' : ' + ((last && last.error) || t('Erreur interne')), true);
+        return last || {ok: false, error: 'Erreur interne'};
+      }
       setProgress(loadingId, last.done, last.total, label);
     } while (!last.finished);
   } catch (e) {
@@ -1093,11 +1211,11 @@ function renderEnrich(props){
     const prot = p.title_protected ? '<div class="prot">Titre protégé (remix/edit) — non modifié</div>' : '';
     let sel = '';
     if (p.albums && p.albums.length){
-      sel = '<select>' + p.albums.map(a =>
+      sel = '<select aria-label="' + esc(t('Album')) + '">' + p.albums.map(a =>
         '<option value="' + esc(a.id) + '"' + (a.id === p.chosen_id ? ' selected' : '') + '>'
         + esc(a.title) + (a.type ? ' (' + esc(a.type) + ')' : '') + '</option>').join('') + '</select>';
     }
-    return '<div class="enrich-row" data-idx="' + i + '"><input type="checkbox" checked>'
+    return '<div class="enrich-row" data-idx="' + i + '"><input type="checkbox" checked aria-label="' + esc(t('Appliquer à') + ' ' + p.name) + '">'
       + '<div class="body"><div class="f reveal" data-path="' + esc(p.path || '') + '" title="Cliquer pour localiser le fichier">' + esc(p.name) + '</div>'
       + '<div class="chg">' + chg + '</div>' + prot + sel + '</div></div>';
   }).join('');
@@ -1181,7 +1299,7 @@ function renderImportCheck(results){
     if (r.base) d += (d ? ' · ' : '') + 'déjà présent : <b>' + esc(r.base) + '</b>'
       + (r.score !== '' ? (' (' + esc(r.score) + ')') : '');
     return '<div class="impchk-row" data-idx="' + i + '" data-path="' + esc(r.path) + '">'
-      + '<input type="checkbox"' + (r.checked_default ? ' checked' : '') + '>'
+      + '<input type="checkbox"' + (r.checked_default ? ' checked' : '') + ' aria-label="' + esc(t('Sélectionner') + ' ' + r.name) + '">'
       + '<div class="body"><div class="f">' + esc(r.name)
       + '<span class="st ' + cls[r.status] + '">' + lab[r.status] + '</span></div>'
       + (d ? ('<div class="d">' + d + '</div>') : '') + '</div></div>';
@@ -1242,7 +1360,7 @@ function renderRenameTable(){
   const root = $('rename-table');
   root.innerHTML = renameRows.map((r, i) =>
     '<div class="rn-row">'
-    + '<input type="checkbox" data-i="' + i + '" ' + (r._checked ? 'checked' : '') + '>'
+    + '<input type="checkbox" data-i="' + i + '" ' + (r._checked ? 'checked' : '') + ' aria-label="' + esc(t('Renommer') + ' ' + r.old_name) + '">'
     + '<span class="rn-old" title="' + esc(r.old_name) + '">' + esc(r.old_name) + '</span>'
     + '<span class="rn-new" title="' + esc(r.new_name) + '">' + esc(r.new_name) + '</span>'
     + '<span class="rn-track ' + (r.in_nml ? 'yes' : 'no') + '">' + (r.in_nml ? 'Suivi' : 'Hors NML') + '</span>'
@@ -1971,9 +2089,27 @@ async function rvSkip(){
 }
 
 // raccourcis clavier — actifs uniquement sur l'onglet Tags, file affichée
+let kbdOn = true;
+function renderKbdPref(){
+  const b = $('rv-keys-toggle'); if (!b) return;
+  b.textContent = t(kbdOn ? 'Désactiver les raccourcis' : 'Activer les raccourcis');
+  b.setAttribute('aria-pressed', kbdOn ? 'true' : 'false');
+  b.closest('.rv-keys').classList.toggle('off', !kbdOn);
+}
+$('rv-keys-toggle').addEventListener('click', async () => {
+  kbdOn = !kbdOn;
+  renderKbdPref();
+  try { await API.set_kbd_shortcuts(kbdOn); } catch (e){}
+  announce(t(kbdOn ? 'Raccourcis clavier activés' : 'Raccourcis clavier désactivés'));
+});
 document.addEventListener('keydown', (e) => {
-  if (!rvLoaded) return;
+  if (!rvLoaded || !kbdOn) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (!views.tags.classList.contains('show')) return;
+  // WCAG 2.1.4 : touches simples seulement quand le focus est dans la carte
+  // de validation (ou nulle part) — jamais depuis le menu, un autre champ, etc.
+  const ae = document.activeElement;
+  if (ae && ae !== document.body && !$('review-card').contains(ae)) return;
   if ($('review-main').style.display === 'none') return;
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'){
@@ -2067,7 +2203,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.19';
+const APP_VERSION = 'v1.5.20';
 
 // ---------- mises à jour (audit sécurité S12) ----------
 // Python interroge l'API GitHub (https, 1×/jour, désactivable) ; on ne fait
@@ -2119,11 +2255,18 @@ async function boot(){
       LANG = (st && st.lang === 'fr') ? 'fr' : 'en';
     }
   } catch (e){ LANG = 'en'; }
+  document.documentElement.lang = LANG;          // A7 : la langue réelle de l'interface
   translateDom();
   startI18nObserver();
+  a11yEnhance(document);
+  try { const st2 = await API.get_state(); kbdOn = !st2 || st2.kbd_shortcuts !== false; } catch (e){}
+  renderKbdPref();
+  viewMeta('home');
   const fr = $('btn-lang-fr'), en = $('btn-lang-en');
   fr.classList.toggle('active', LANG === 'fr');
   en.classList.toggle('active', LANG === 'en');
+  fr.setAttribute('aria-pressed', String(LANG === 'fr'));
+  en.setAttribute('aria-pressed', String(LANG === 'en'));
   fr.addEventListener('click', async () => { await API.set_lang('fr'); location.reload(); });
   en.addEventListener('click', async () => { await API.set_lang('en'); location.reload(); });
   refreshHome();
@@ -2144,7 +2287,7 @@ if (window.pywebview && window.pywebview.api){
 let vaultMode = 'quit';
 let vaultBusy = false;
 function showVaultPrompt(mode, never){
-  if (vaultBusy){ $('vault-modal').style.display = 'flex'; return; }
+  if (vaultBusy){ openVault(); return; }
   vaultMode = mode || 'quit';
   const box = $('vault-modal');
   box.querySelector('.modal-text').textContent = never
@@ -2158,16 +2301,32 @@ function showVaultPrompt(mode, never){
   box.querySelector('.modal-title').textContent = never ? 'Créer le coffre-fort M3U ?' : 'Mettre à jour le coffre-fort M3U ?';
   ['btn-vq-cancel','btn-vq-skip','btn-vq-regen'].forEach(id => $(id).disabled = false);
   $('btn-vq-cancel').style.display = (vaultMode === 'quit') ? '' : 'none';
-  box.style.display = 'flex';
   $('vault-progress').style.display = 'none';
   translateDom(box);
+  openVault();
+  // focus sur l'action sans conséquence : Annuler (fermeture) ou Plus tard
+  $(vaultMode === 'quit' ? 'btn-vq-cancel' : 'btn-vq-skip').focus();
 }
+function openVault(){
+  const d = $('vault-modal');
+  if (d.open) return;
+  try { d.showModal(); } catch (e){ d.setAttribute('open', ''); }
+}
+function closeVault(){
+  const d = $('vault-modal');
+  if (d.open){ try { d.close(); } catch (e){ d.removeAttribute('open'); } }
+}
+// Échap = Annuler / Plus tard (jamais « quitter »), sauf pendant la génération
+$('vault-modal').addEventListener('cancel', (e) => {
+  e.preventDefault();
+  if (!vaultBusy) closeVault();
+});
 $('btn-vq-cancel').addEventListener('click', () => {
-  $('vault-modal').style.display = 'none';
+  closeVault();
 });
 $('btn-vq-skip').addEventListener('click', () => {
   if (vaultMode === 'quit'){ if (API) API.confirm_quit(); }
-  else $('vault-modal').style.display = 'none';
+  else closeVault();
 });
 $('btn-vq-regen').addEventListener('click', async () => {
   if (!API || vaultBusy) return;
@@ -2203,7 +2362,7 @@ $('btn-vq-regen').addEventListener('click', async () => {
   prog.textContent = t('Terminé : ') + t('coffre-fort à jour');
   vaultBusy = false;
   if (vaultMode === 'quit') API.confirm_quit();
-  else setTimeout(() => { $('vault-modal').style.display = 'none'; }, 1200);
+  else setTimeout(closeVault, 1200);
 });
 
 // ---------- compteurs cliquables ----------
@@ -2237,7 +2396,7 @@ $('tags-fix').closest('.tile').addEventListener('click', () => scrollToEl('tags-
 // Menu latéral, tuiles, liens-compteurs et lignes de fichiers sont des <div> :
 // sans tabindex ils étaient inaccessibles au clavier. Entrée/Espace = clic.
 const KBD_SEL = '.nav-item, .tile.clickable, .num-link, .unident-item[data-i], .rv-tile, '
-  + '.entry-alert, .ver, .status-item, .go-config, #btn-lang-fr, #btn-lang-en';
+  + '.entry-alert, .ver, .status-item, .go-config';
 function makeKeyboardable(root){
   (root.querySelectorAll ? root.querySelectorAll(KBD_SEL) : []).forEach(el => {
     if (el.tagName === 'BUTTON' || el.hasAttribute('tabindex')) return;
@@ -2247,7 +2406,7 @@ function makeKeyboardable(root){
 }
 makeKeyboardable(document);
 new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => {
-  if (n.nodeType === 1){ if (n.matches && n.matches(KBD_SEL)) makeKeyboardable(n.parentNode || document); makeKeyboardable(n); }
+  if (n.nodeType === 1){ if (n.matches && n.matches(KBD_SEL)) makeKeyboardable(n.parentNode || document); makeKeyboardable(n); a11yEnhance(n.parentNode || n); }
 }))).observe(document.body, {childList: true, subtree: true});
 window.addEventListener('keydown', (e) => {
   const el = document.activeElement;

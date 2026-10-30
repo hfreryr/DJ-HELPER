@@ -61,6 +61,22 @@ const I18N_EN = {
   "Obtenir une clé": "Get a key",
   "Clé AcoustID enregistrée": "AcoustID key saved",
   "Mises à jour": "Updates",
+  "Aide": "Help",
+  "Fermer": "Close",
+  "Progression": "Progress",
+  "Désactiver les raccourcis": "Turn off shortcuts",
+  "Activer les raccourcis": "Turn on shortcuts",
+  "Raccourcis clavier activés": "Keyboard shortcuts on",
+  "Raccourcis clavier désactivés": "Keyboard shortcuts off",
+  "Appliquer à": "Apply to",
+  "Album": "Album",
+  "Sélectionner": "Select",
+  "Renommer": "Rename",
+  "Aller au contenu": "Skip to content",
+  "Sections": "Sections",
+  "Morceaux à comparer, un par ligne au format Artiste - Titre": "Tracks to compare, one per line as Artist - Title",
+  "Autre genre": "Other genre",
+  "Filtrer les résultats": "Filter results",
   "Vérification au démarrage activée": "Checked at startup",
   "Vérification désactivée": "Check disabled",
   "Désactiver": "Disable",
@@ -724,8 +740,8 @@ function translateDom(root){
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach(_translateTextNode);
-  (target.querySelectorAll ? target.querySelectorAll('[title],[placeholder]') : []).forEach(el => {
-    ['title', 'placeholder'].forEach(a => {
+  (target.querySelectorAll ? target.querySelectorAll('[title],[placeholder],[aria-label]') : []).forEach(el => {
+    ['title', 'placeholder', 'aria-label'].forEach(a => {
       const v = el.getAttribute && el.getAttribute(a);
       if (v && Object.prototype.hasOwnProperty.call(I18N_EN, v.trim())
           && I18N_EN[v.trim()] !== v.trim()){

@@ -66,6 +66,18 @@ ProtonDrive…) : la synchro peut servir des fichiers périmés.
 - Licences : DJ Helper est sous **GPL v3** (`LICENSE`). Les binaires embarqués
   ffmpeg (build GPL) et fpcalc/Chromaprint conservent leurs licences.
 
+## Accessibilité
+
+DJ Helper vise le niveau **WCAG 2.2 AA** (référentiel RGAA 4.1 pour la méthode). État au 30/10/2026 (v1.5.20) :
+
+- **Contrôle automatique** : 0 anomalie axe-core sur les 10 écrans testés (accueil, tags, import, hors playlist, doublons, intégrité, synchro, statut, dialogue).
+- **Clavier** : tout est utilisable sans souris ; lien « Aller au contenu » ; le dialogue de fermeture garde le focus et se ferme avec Échap.
+- **Lecteurs d'écran** : titres de page et de section, champs nommés, résultats, progression et messages annoncés, aides ⓘ lisibles.
+- **Raccourcis de l'onglet Tags** (espace, 1–6, R, →) : actifs seulement dans la carte de validation, désactivables (choix mémorisé).
+- **Zoom 200 %** : mise en page sur une colonne, sans défilement horizontal ; mouvements réduits respectés.
+
+**Limites connues** : pas encore testé avec VoiceOver (macOS) ni NVDA (Windows) par un utilisateur ; le lecteur audio est celui du système (contrôles natifs). Un problème d'accessibilité ? Ouvre une issue en précisant le système et l'outil d'assistance.
+
 ## Dépannage
 
 | Symptôme | Solution |
