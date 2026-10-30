@@ -379,6 +379,10 @@ body{
   padding:6px 14px 4px 12px; font-size:11.5px; color:var(--text-3);}
 .lang-globe{width:13px; height:13px; margin-right:7px; vertical-align:-2px; opacity:.75;}
 .app-version{font-size:10.5px; color:var(--text-3); opacity:.7; letter-spacing:.3px;}
+.upd-link{display:block; margin:6px 0 2px; padding:6px 10px; border-radius:6px; font-size:12px; text-decoration:none; color:var(--text); background:color-mix(in srgb, var(--accent) 22%, transparent); border:1px solid color-mix(in srgb, var(--accent) 45%, transparent);}
+.upd-link[hidden]{display:none;}
+.upd-link:hover{background:color-mix(in srgb, var(--accent) 32%, transparent);}
+.upd-link:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 .lang-mini{font-size:11.5px; color:var(--text-3); letter-spacing:.4px; display:inline-flex; align-items:center;}
 .lang-mini span{cursor:pointer;}
 .lang-mini .sep{margin:0 6px; cursor:default;}

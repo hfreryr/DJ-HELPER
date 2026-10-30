@@ -132,6 +132,7 @@ async function refreshHome(){
       cu.classList.add('missing');
       $('cfg-usb-btn').textContent = 'Définir';
     }
+    renderUpdatePref(st.update_check !== false);
     const setTool = (id, path) => {
       const el = $(id);
       if (!el) return;
@@ -2066,7 +2067,41 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.18';
+const APP_VERSION = 'v1.5.19';
+
+// ---------- mises à jour (audit sécurité S12) ----------
+// Python interroge l'API GitHub (https, 1×/jour, désactivable) ; on ne fait
+// que prévenir : le téléchargement se fait sur la page officielle de release.
+function renderUpdatePref(on){
+  const v = $('cfg-update'), b = $('cfg-update-btn');
+  if (!v || !b) return;
+  v.textContent = on ? 'Vérification au démarrage activée' : 'Vérification désactivée';
+  v.classList.toggle('missing', !on);
+  b.textContent = on ? 'Désactiver' : 'Activer';
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+async function checkUpdate(force){
+  let r;
+  try { r = await API.check_update(APP_VERSION, !!force); } catch (e){ return null; }
+  const a = $('upd-link');
+  if (r && r.ok && r.newer && /^https:\/\/github\.com\/hfreryr\/dj-helper\/releases\//.test(r.url || '')){
+    a.href = r.url;
+    a.textContent = t('Nouvelle version disponible') + ' : ' + r.latest;
+    a.hidden = false;
+    toast(t('Nouvelle version disponible') + ' : ' + r.latest);
+  } else if (a){ a.hidden = true; }
+  return r;
+}
+$('cfg-update-btn').addEventListener('click', async () => {
+  const on = $('cfg-update-btn').getAttribute('aria-pressed') !== 'true';
+  try { await API.set_update_check(on); } catch (e){ return; }
+  renderUpdatePref(on);
+  if (on){
+    const r = await checkUpdate(true);
+    if (r && r.ok && !r.newer) toast(t('DJ Helper est à jour'));
+    else if (r && !r.ok) toast(t('Vérification des mises à jour impossible (hors ligne ?)'));
+  } else { $('upd-link').hidden = true; }
+});
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){
@@ -2092,6 +2127,7 @@ async function boot(){
   fr.addEventListener('click', async () => { await API.set_lang('fr'); location.reload(); });
   en.addEventListener('click', async () => { await API.set_lang('en'); location.reload(); });
   refreshHome();
+  setTimeout(() => { checkUpdate(false); }, 4000);   // après le rendu, sans le ralentir
   try {
     const v = await API.vault_check();
     if (v && v.changed) showVaultPrompt('start', v.never);

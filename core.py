@@ -1835,6 +1835,30 @@ def _https_only(url):
     return url
 
 
+def _version_tuple(v):
+    """« v1.5.19 » -> (1, 5, 19) ; None si le format n'est pas reconnu (on
+    ne compare jamais une chaîne arbitraire venue du réseau)."""
+    m = re.match(r"^v?(\d{1,4})\.(\d{1,4})\.(\d{1,4})$", str(v or "").strip())
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def _update_fetch(url, timeout=6):
+    """GET JSON https pour la vérification des mises à jour. Volontairement
+    séparé de _enr_getj : un échec ici ne doit pas déclencher le disjoncteur
+    réseau de l'enrichissement. Réponse plafonnée à 256 Ko."""
+    import json, urllib.request
+    try:
+        _https_only(url)
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "DJHelper-update-check"})
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
+            data = json.loads(r.read(262144).decode("utf-8", "ignore"))
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
 def _enr_getj(url, timeout=14):
     import json, urllib.request
     try:
@@ -2264,6 +2288,9 @@ class Core:
         self.acoustid_key = ""
         self.lang = "en"
         self.last_vault_nml_hash = ""
+        self.update_check = True
+        self.update_last = 0.0
+        self.update_latest = ""
         self.tracks = []
         self._scan_cache = {}
         self._acoustid_cache = {}
@@ -2317,6 +2344,9 @@ class Core:
             self.lang = (data.get("lang") or "en").strip() or "en"
             self.lang_set = bool((data.get("lang") or "").strip())
             self.last_vault_nml_hash = data.get("last_vault_nml_hash") or ""
+            self.update_check = data.get("update_check", True) is not False
+            self.update_last = float(data.get("update_last") or 0)
+            self.update_latest = str(data.get("update_latest") or "")[:20]
         except FileNotFoundError:
             pass
         except Exception:
@@ -2332,10 +2362,46 @@ class Core:
                                  "usb_root": self.usb_root,
                                  "acoustid_key": self.acoustid_key,
                                  "lang": getattr(self, "lang", "en") if getattr(self, "lang_set", False) else "",
-                                 "last_vault_nml_hash": getattr(self, "last_vault_nml_hash", "")},
+                                 "last_vault_nml_hash": getattr(self, "last_vault_nml_hash", ""),
+                                 "update_check": bool(getattr(self, "update_check", True)),
+                                 "update_last": float(getattr(self, "update_last", 0) or 0),
+                                 "update_latest": getattr(self, "update_latest", "")},
                              ensure_ascii=False, indent=2)
         except Exception:
             pass
+
+    # ----- vérification des mises à jour (audit sécurité S12) -----
+    # Une requête par jour au plus, https uniquement, vers l'API publique des
+    # releases GitHub ; rien n'est téléchargé ni installé : l'app signale
+    # seulement la nouvelle version et ouvre la page de release (sommes
+    # SHA256SUMS + attestation de provenance). Désactivable dans l'accueil.
+    UPDATE_API = "https://api.github.com/repos/hfreryr/dj-helper/releases/latest"
+    UPDATE_PAGE = "https://github.com/hfreryr/dj-helper/releases/"
+
+    def set_update_check(self, on):
+        self.update_check = bool(on)
+        self._save_config()
+        return {"ok": True, "update_check": self.update_check}
+
+    def check_update(self, current, force=False):
+        import time
+        cur = _version_tuple(current)
+        if not getattr(self, "update_check", True) and not force:
+            return {"ok": True, "disabled": True}
+        latest = getattr(self, "update_latest", "")
+        if force or time.time() - float(getattr(self, "update_last", 0) or 0) > 86400:
+            data = _update_fetch(self.UPDATE_API)
+            if data is None:
+                return {"ok": False, "error": "vérification impossible (hors ligne ?)"}
+            tag = str(data.get("tag_name") or "")[:20]
+            if not _version_tuple(tag):
+                return {"ok": False, "error": "réponse inattendue"}
+            latest = tag
+            self.update_latest, self.update_last = tag, time.time()
+            self._save_config()
+        newer = bool(cur and _version_tuple(latest) and _version_tuple(latest) > cur)
+        return {"ok": True, "latest": latest, "newer": newer,
+                "url": (self.UPDATE_PAGE + "tag/" + latest) if newer else ""}
 
     def set_lang(self, lang):
         self.lang = "fr" if (lang or "").strip().lower() == "fr" else "en"
@@ -2793,6 +2859,7 @@ class Core:
             "lang": getattr(self, "lang", "en"),
             # langue jamais choisie : l'interface prend celle du système
             "lang_set": bool(getattr(self, "lang_set", False)),
+            "update_check": bool(getattr(self, "update_check", True)),
             "fpcalc": find_fpcalc() or "",
             "fpcalc_error": fpcalc_health(),
             "ffmpeg": find_ffmpeg() or "",

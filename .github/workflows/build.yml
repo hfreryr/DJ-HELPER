@@ -10,6 +10,9 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Actions épinglées par empreinte de commit (un tag peut être déplacé, pas une
+# empreinte) ; dépendances Python figées avec leurs sommes (requirements-build.lock).
+# Mises à jour proposées par Dependabot (.github/dependabot.yml).
 permissions:
   contents: write
 
@@ -20,7 +23,7 @@ jobs:
       tag: ${{ steps.v.outputs.tag }}
       release: ${{ steps.v.outputs.release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       - id: v
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,11 +48,11 @@ jobs:
     if: needs.version.outputs.release == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
-          python-version: "3.12"
-      - run: python -m pip install -r requirements.txt pyinstaller
+          python-version: "3.12.16"
+      - run: python -m pip install --require-hashes --no-deps -r requirements-build.lock
 
       # ffmpeg (build GPL, gyan.dev) et fpcalc (Chromaprint) embarqués.
       # Versions ÉPINGLÉES et sommes SHA-256 vérifiées : un fichier différent de
@@ -78,7 +81,7 @@ jobs:
           --collect-all webview --collect-submodules mutagen
           --hidden-import numpy --hidden-import rapidfuzz main.py
       - run: Compress-Archive -Path "dist/DJ Helper" -DestinationPath "DJHelper-windows.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: windows
           path: DJHelper-windows.zip
@@ -88,11 +91,11 @@ jobs:
     if: needs.version.outputs.release == 'true'
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
-          python-version: "3.12"
-      - run: python -m pip install -r requirements.txt pyinstaller
+          python-version: "3.12.16"
+      - run: python -m pip install --require-hashes --no-deps -r requirements-build.lock
 
       - name: Download ffmpeg
         run: |
@@ -132,7 +135,7 @@ jobs:
           --collect-all webview --collect-submodules mutagen
           --hidden-import numpy --hidden-import rapidfuzz main.py
       - run: ditto -c -k --keepParent "dist/DJ Helper.app" DJHelper-macos.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: macos
           path: DJHelper-macos.zip
@@ -141,10 +144,21 @@ jobs:
     # Release créée seulement quand les DEUX builds ont réussi (atomique)
     needs: [version, windows, macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write        # signature Sigstore de l'attestation de provenance
+      attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           path: dist
+      # Attestation de provenance (Sigstore) : prouve que les zips sortent de CE
+      # dépôt et de CE build. Vérification : gh attestation verify <zip> -R hfreryr/DJ-HELPER
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: |
+            dist/windows/DJHelper-windows.zip
+            dist/macos/DJHelper-macos.zip
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -225,6 +225,12 @@ class Api:
     def set_lang(self, lang):
         return self._core.set_lang(lang)
 
+    def set_update_check(self, on):
+        return self._core.set_update_check(on)
+
+    def check_update(self, current, force=False):
+        return self._core.check_update(current, force)
+
     # --- Nettoyer ma bibliothèque (file de validation + enrichissement) ---
     def review_scan(self):
         return self._core.review_scan()

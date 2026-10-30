@@ -1,0 +1,13 @@
+# Mises à jour de sécurité proposées automatiquement (audit sécurité, lot 2).
+# Chaque proposition passe par le CI (tests + audit) avant fusion manuelle.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

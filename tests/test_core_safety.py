@@ -445,3 +445,41 @@ def test_enrichment_refuses_non_https_urls():
     assert core._enr_geth("file:///etc/passwd") is None
     assert core._enr_getj("file:///etc/passwd") is None
     assert core._enr_geth("http://example.com") is None
+
+
+def test_version_tuple_strict():
+    assert core._version_tuple("v1.5.19") == (1, 5, 19)
+    assert core._version_tuple("1.10.0") == (1, 10, 0)
+    assert core._version_tuple("v1.5.19-evil") is None
+    assert core._version_tuple("<script>") is None
+    assert core._version_tuple(None) is None
+
+
+def test_update_check_daily_optout_and_url(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    calls = []
+
+    def fake(url, timeout=6):
+        calls.append(url)
+        return {"tag_name": "v1.5.20", "html_url": "https://evil.example/x"}
+    monkeypatch.setattr(core, "_update_fetch", fake)
+    c = core.Core()
+    r = c.check_update("v1.5.19")
+    assert r["newer"] and r["latest"] == "v1.5.20"
+    # l'URL ouverte est construite localement, jamais reprise de la réponse
+    assert r["url"] == "https://github.com/hfreryr/dj-helper/releases/tag/v1.5.20"
+    assert calls == [core.Core.UPDATE_API] and calls[0].startswith("https://")
+    c.check_update("v1.5.19")                      # < 24 h : pas de 2e requête
+    assert len(calls) == 1
+    assert c.check_update("v1.5.20")["newer"] is False
+    c.set_update_check(False)
+    assert core.Core().check_update("v1.5.19") == {"ok": True, "disabled": True}
+    assert len(calls) == 1
+    # réponse inattendue : refusée, pas de faux positif
+    monkeypatch.setattr(core, "_update_fetch", lambda u, timeout=6: {"tag_name": "v9.9.9; rm -rf"})
+    assert core.Core().check_update("v1.5.19", force=True)["ok"] is False
+
+
+def test_update_fetch_refuses_non_https():
+    assert core._update_fetch("http://api.github.com/x") is None
+    assert core._update_fetch("file:///etc/passwd") is None
