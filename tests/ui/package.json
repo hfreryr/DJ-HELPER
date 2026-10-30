@@ -1,0 +1,8 @@
+{
+  "name": "djhelper-ui-tests",
+  "private": true,
+  "description": "Outils des tests d'interface (axe-core). Installé par « npm ci » dans le CI.",
+  "devDependencies": {
+    "axe-core": "4.14.0"
+  }
+}

@@ -317,9 +317,9 @@ pyobjc-framework-webkit==12.2.2 ; sys_platform == 'darwin' \
     # via
     #   -c build-constraints.txt
     #   pywebview
-pythonnet==3.2.0 ; sys_platform == 'win32' \
-    --hash=sha256:880bed9452646624f2cca1627d463424d15abefa16933c46ba00dc10da78d184 \
-    --hash=sha256:c8c7946d291156ffc1d5f22c001a63c6776947ce3c64da800ccea8181ddb1abe
+pythonnet==3.2.1 ; sys_platform == 'win32' \
+    --hash=sha256:c86e8dd31268f6e0c48fcc4d6030041316d49ed2764a1cb6ea8c37876e07c572 \
+    --hash=sha256:dd5668b74b0c903d9a24e1ba86f728fc490f8e919d56b3c24bf06739b9ee2b7f
     # via
     #   -c build-constraints.txt
     #   pywebview

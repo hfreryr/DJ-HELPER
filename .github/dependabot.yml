@@ -1,5 +1,8 @@
-# Mises à jour de sécurité proposées automatiquement (audit sécurité, lot 2).
-# Chaque proposition passe par le CI (tests + audit) avant fusion manuelle.
+# Mises à jour de sécurité proposées automatiquement (audit, lots 2 et 4).
+# Chaque proposition passe par checks.yml. Pour pip, Dependabot modifie les .in /
+# requirements.txt / build-constraints.txt mais pas les .lock : le contrôle
+# « Locks à jour » échoue alors volontairement, il faut régénérer le lock
+# (commande en tête du fichier) — voir CONTRIBUTING.md.
 version: 2
 updates:
   - package-ecosystem: "pip"
@@ -7,7 +10,17 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      python:
+        patterns: ["*"]
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: "npm"
+    directory: "/tests/ui"
     schedule:
       interval: "monthly"

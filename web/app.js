@@ -1701,9 +1701,11 @@ async function scanOrphans(){
   if (!res.n_orphans){
     $('orphans-count').innerHTML = '<span style="color:var(--success)">Aucun : tous tes morceaux sont dans au moins une playlist. 👌</span>';
     $('btn-orphans-traktor').style.display = 'none';
+    $('btn-orphans-traktor').nextElementSibling.style.display = 'none';   // son ⓘ
     return;
   }
   $('btn-orphans-traktor').style.display = '';
+  $('btn-orphans-traktor').nextElementSibling.style.display = '';
   $('orphans-count').innerHTML = '<span class="num-link" id="orphans-link">'
     + res.n_orphans + ' morceau(x) dans aucune playlist ▸</span>'
     + ' <span style="color:var(--text-3)">sur ' + res.n_total + ' (' + res.n_playlists + ' playlists)</span>';
@@ -2203,7 +2205,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.20';
+const APP_VERSION = 'v1.5.21';
 
 // ---------- mises à jour (audit sécurité S12) ----------
 // Python interroge l'API GitHub (https, 1×/jour, désactivable) ; on ne fait

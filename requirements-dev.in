@@ -1,0 +1,9 @@
+# Outils du CI (tests, audits). Lock : requirements-dev.lock (Linux, Python 3.13),
+# régénéré avec la commande en tête du lock. Versions de l'app alignées sur le
+# lock de build (-c).
+-r requirements.txt
+pytest
+playwright
+pip-audit
+bandit
+uv

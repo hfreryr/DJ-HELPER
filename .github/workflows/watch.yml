@@ -1,0 +1,34 @@
+name: Veille mensuelle
+
+# Le 3 de chaque mois : relance tous les contrôles sur main, même sans
+# modification. Une faille publiée dans une dépendance, une nouvelle règle
+# Semgrep ou une régression d'accessibilité ouvre alors une issue.
+on:
+  schedule:
+    - cron: "41 4 3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  report:
+    needs: checks
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Ouvrir une issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create -R "$GITHUB_REPOSITORY" \
+            --title "Veille mensuelle : contrôle en échec ($(date -u +%Y-%m))" \
+            --body "La veille mensuelle a trouvé un problème : $RUN
+
+          À traiter avant la prochaine release (voir CONTRIBUTING.md, « Veille »)."

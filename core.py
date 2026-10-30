@@ -28,7 +28,8 @@ def nml_hash(usb_root):
         nml = bk_find_collection_nml(usb_root)
         if not nml:
             return ""
-        h = hashlib.sha1(usedforsecurity=False)
+        # empreinte de changement du fichier, pas de sécurité
+        h = hashlib.sha1(usedforsecurity=False)  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
         with open(nml, "rb") as f:
             for chunk in iter(lambda: f.read(65536), b""):
                 h.update(chunk)
@@ -678,7 +679,8 @@ def acoustid_lookup(fingerprint, duration, client_key, timeout=20):
         req = urllib.request.Request(
             ACOUSTID_LOOKUP_URL, data=params,
             headers={"Content-Type": "application/x-www-form-urlencoded"})
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        # URL https constante (ACOUSTID_LOOKUP_URL) (faux positif bandit B310)
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # nosec B310
             data = json.loads(resp.read().decode("utf-8"))
         if data.get("status") != "ok":
             err = ""
@@ -758,7 +760,8 @@ def acoustid_identify(fingerprint, duration, client_key, timeout=15):
         req = urllib.request.Request(
             ACOUSTID_LOOKUP_URL, data=params,
             headers={"Content-Type": "application/x-www-form-urlencoded"})
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        # URL https constante (ACOUSTID_LOOKUP_URL) (faux positif bandit B310)
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # nosec B310
             data = json.loads(resp.read().decode("utf-8"))
         if data.get("status") != "ok":
             err = ""
@@ -819,7 +822,8 @@ def mb_releasegroup_date(rg_mbid, timeout=15):
     try:
         url = "%s/release-group/%s?fmt=json" % (MUSICBRAINZ_WS, rg_mbid)
         req = urllib.request.Request(url, headers={"User-Agent": MB_USER_AGENT})
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        # URL https constante (MUSICBRAINZ_WS) (faux positif bandit B310)
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # nosec B310
             data = json.loads(resp.read().decode("utf-8"))
         return (data.get("first-release-date") or "")[:4]
     except Exception:
@@ -836,7 +840,8 @@ def caa_front_cover(rg_mbid, size=500, timeout=25):
     try:
         url = "%s/release-group/%s/front-%d" % (COVERART_ARCHIVE, rg_mbid, size)
         req = urllib.request.Request(url, headers={"User-Agent": MB_USER_AGENT})
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        # URL https constante (COVERART_ARCHIVE) (faux positif bandit B310)
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # nosec B310
             return resp.read(), resp.headers.get("Content-Type", "image/jpeg")
     except Exception:
         return None, None
@@ -1378,7 +1383,8 @@ def djh_private_dir(*sub):
     if os.name == "posix":
         for p in {base, d}:
             try:
-                os.chmod(p, 0o700)
+                # dossiers privés : 700 = propriétaire seul (l'outil vise les fichiers)
+                os.chmod(p, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
             except OSError:
                 pass
     return d
@@ -1434,7 +1440,9 @@ def nml_parse_safe(nml_path):
         head = f.read(65536)
     if _NML_DTD_RE.search(head.decode("utf-8", "replace")):
         raise ValueError("collection.nml contient une déclaration DOCTYPE/ENTITY : refusé")
-    return ET.parse(str(nml_path)).getroot()
+    # DOCTYPE/ENTITY refusés juste avant (faux positif bandit B314)
+    # DOCTYPE/ENTITY refusés ci-dessus : équivalent de defusedxml pour ce format
+    return ET.parse(str(nml_path)).getroot()  # nosec B314 # nosemgrep: python.lang.security.use-defused-xml-parse.use-defused-xml-parse
 
 
 def nml_read(nml_path):
@@ -1451,7 +1459,8 @@ def nml_write_atomic(nml_path, text):
     import xml.etree.ElementTree as ET
     if _NML_DTD_RE.search(text[:65536]):
         raise ValueError("collection.nml contient une déclaration DOCTYPE/ENTITY : refusé")
-    ET.fromstring(text.encode("utf-8"))          # refuse d'écrire un nml cassé
+    # refuse d'écrire un nml cassé  # DOCTYPE/ENTITY refusés juste avant (faux positif bandit B314)
+    ET.fromstring(text.encode("utf-8"))  # nosec B314
     tmp = nml_path + ".djh_tmp"
     try:
         with open(tmp, "w", encoding="utf-8", newline="") as f:
@@ -1852,7 +1861,8 @@ def _update_fetch(url, timeout=6):
         req = urllib.request.Request(url, headers={
             "Accept": "application/vnd.github+json",
             "User-Agent": "DJHelper-update-check"})
-        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
+        # https imposé par _https_only() (faux positif bandit B310)
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:  # nosec B310
             data = json.loads(r.read(262144).decode("utf-8", "ignore"))
         return data if isinstance(data, dict) else None
     except Exception:
@@ -1867,7 +1877,8 @@ def _enr_getj(url, timeout=14):
         return None
     try:
         req = urllib.request.Request(url, headers=_ENR_UA_JSON)
-        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
+        # https imposé par _https_only() (faux positif bandit B310)
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:  # nosec B310
             return json.loads(r.read().decode("utf-8", "ignore"))
     except ValueError:
         return None                       # réponse non JSON : pas un échec réseau
@@ -1883,7 +1894,8 @@ def _enr_geth(url, timeout=18):
     except ValueError:
         return None
         req = urllib.request.Request(url, headers=_ENR_UA_HTML)
-        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
+        # https imposé par _https_only() (faux positif bandit B310)
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:  # nosec B310
             return r.read().decode("utf-8", "ignore")
     except Exception as e:
         _enr_net_failed(e)
@@ -2602,9 +2614,9 @@ class Core:
                 # PATH ne peut pas être lancé à la place (audit sécurité S11)
                 explorer = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "explorer.exe")
                 if exists:
-                    subprocess.Popen([explorer, "/select,", os.path.normpath(path)])
+                    subprocess.Popen([explorer, "/select,", os.path.normpath(path)])  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
                 elif os.path.isdir(folder):
-                    subprocess.Popen([explorer, os.path.normpath(folder)])
+                    subprocess.Popen([explorer, os.path.normpath(folder)])  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
                 else:
                     return {"ok": False, "error": "Introuvable : " + path}
             else:
@@ -2747,7 +2759,9 @@ class Core:
             for pl in sorted(playlists, key=lambda p: p.get("name", "")):
                 parts.append(pl.get("name", ""))
                 parts.extend(pl.get("tracks", []))
-            h = hashlib.sha1("\n".join(parts).encode("utf-8", "replace"), usedforsecurity=False).hexdigest()
+            # empreinte de détection de changement, pas de sécurité (garder sha1 : changer
+            # d'algorithme redéclencherait la question du coffre-fort chez tout le monde)
+            h = hashlib.sha1("\n".join(parts).encode("utf-8", "replace"), usedforsecurity=False).hexdigest()  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
             self._ptree_cache = (key, h)
             return h
         except Exception:
@@ -5429,7 +5443,8 @@ class Core:
         if not ff or ffmpeg_health():
             return ""
         try:
-            tag = hashlib.sha1(("%s|%s" % (path, os.path.getmtime(path)))
+            # clé de cache, pas de sécurité
+            tag = hashlib.sha1(("%s|%s" % (path, os.path.getmtime(path)))  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
                                .encode("utf-8", "ignore"), usedforsecurity=False).hexdigest()[:20]
         except Exception:
             return ""
