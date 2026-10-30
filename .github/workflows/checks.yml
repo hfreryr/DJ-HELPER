@@ -1,0 +1,93 @@
+name: Checks
+
+# Barrière qualité (audit sécurité et accessibilité, lot 4). Lancée sur chaque
+# proposition de modification (PR, Dependabot compris), chaque push sur main,
+# avant chaque release (appelée par build.yml) et chaque mois (watch.yml).
+# Tout échec bloque : rien n'atteint une release sans ces contrôles verts.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13.17"
+
+jobs:
+  unit:
+    name: Tests et analyse du code Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: python -m pip install --require-hashes --no-deps -r requirements-dev.lock
+      - name: Tests de non-régression (données, sécurité)
+        run: python -m pytest -q tests
+      - name: Bandit — sévérité moyenne et plus
+        # Les faux positifs connus sont annotés « nosec » avec leur justification
+        # sur la ligne précédente ; toute nouvelle alerte bloque.
+        run: bandit -q -r core.py main.py -ll
+
+  deps:
+    name: Dépendances (fraîcheur des locks, vulnérabilités)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: python -m pip install --require-hashes --no-deps -r requirements-dev.lock
+      - name: Locks à jour (une proposition Dependabot sur un .in/.txt impose de régénérer)
+        run: scripts/check-locks.sh
+      - name: pip-audit — application (ce qui est livré)
+        run: pip-audit -r requirements-build.lock --require-hashes --disable-pip --progress-spinner off
+      - name: pip-audit — outils du CI
+        run: pip-audit -r requirements-dev.lock --require-hashes --disable-pip --progress-spinner off
+      - name: pip-audit — semgrep (informatif)
+        # semgrep fige lui-même certaines dépendances (mcp, opentelemetry) :
+        # on ne peut pas les corriger ici. Il ne tourne que dans le job « sast »,
+        # sans secret ni droit d'écriture, et n'est jamais livré.
+        continue-on-error: true
+        run: pip-audit -r requirements-semgrep.lock --require-hashes --disable-pip --progress-spinner off
+      - name: npm audit — outils des tests d'interface
+        working-directory: tests/ui
+        run: npm audit --audit-level=moderate
+
+  sast:
+    name: Semgrep (Python + JavaScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: python -m pip install --require-hashes --no-deps -r requirements-semgrep.lock
+      - name: Semgrep
+        # Règles publiques p/python et p/javascript ; faux positifs annotés
+        # « nosemgrep » avec justification. --error : toute alerte bloque.
+        run: >
+          semgrep scan --config p/python --config p/javascript
+          --metrics off --error --quiet
+          core.py main.py web/app.js web/i18n.js
+
+  ui:
+    name: Interface (accessibilité WCAG 2.2 AA, clavier, zoom, CSP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: python -m pip install --require-hashes --no-deps -r requirements-dev.lock
+      - name: axe-core (version figée, sommes vérifiées par npm ci)
+        working-directory: tests/ui
+        run: npm ci --ignore-scripts
+      - run: python -m playwright install --with-deps chromium
+      - name: Parcours d'interface
+        run: python tests/ui/run_ui.py
