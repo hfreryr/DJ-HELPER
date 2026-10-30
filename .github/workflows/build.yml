@@ -51,17 +51,24 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -r requirements.txt pyinstaller
 
-      # ffmpeg (build GPL, gyan.dev) et fpcalc (Chromaprint) embarqués
+      # ffmpeg (build GPL, gyan.dev) et fpcalc (Chromaprint) embarqués.
+      # Versions ÉPINGLÉES et sommes SHA-256 vérifiées : un fichier différent de
+      # celui audité arrête le build (audit sécurité S1). Mise à jour = changer
+      # l'URL ET l'empreinte, après lecture des notes de version/CVE.
       - name: Download ffmpeg
         run: |
-          curl -L -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          curl -fL -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip
+          if ((Get-FileHash ffmpeg.zip -Algorithm SHA256).Hash -ne '60F467265B1E312373DBCD92200C2618A74850F98D3D078E94296BB3FA2047BA') { throw 'ffmpeg.zip : somme SHA-256 inattendue' }
           7z e ffmpeg.zip -offbin */bin/ffmpeg.exe -r
           move ffbin\ffmpeg.exe ffmpeg.exe
+          ./ffmpeg.exe -version
       - name: Download fpcalc
         run: |
           curl -fL -o fpcalc.zip https://github.com/acoustid/chromaprint/releases/download/v1.6.1/chromaprint-fpcalc-1.6.1-windows-x86_64.zip
+          if ((Get-FileHash fpcalc.zip -Algorithm SHA256).Hash -ne '735D6182B38E9F364B84CE6F4CCD682C75E2851DE89735711D6B762D12B92A4E') { throw 'fpcalc.zip : somme SHA-256 inattendue' }
           7z e fpcalc.zip -ofpbin fpcalc.exe -r
           move fpbin\fpcalc.exe fpcalc.exe
+          ./fpcalc.exe -version
 
       - run: >
           pyinstaller --noconfirm --windowed --name "DJ Helper"
@@ -89,12 +96,18 @@ jobs:
 
       - name: Download ffmpeg
         run: |
-          curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
+          # build arm64 natif (martin-riedl.de, signé) : evermeet.cx ne fournit
+          # que de l'Intel, inutilisable sans Rosetta dans une appli arm64
+          curl -fL -o ffmpeg.zip https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip
+          echo "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924  ffmpeg.zip" | shasum -a 256 -c -
           unzip -o ffmpeg.zip
           chmod +x ffmpeg
+          lipo -archs ffmpeg | grep -q arm64
+          ./ffmpeg -version | head -1
       - name: Download fpcalc
         run: |
           curl -fL -o fpcalc.tgz https://github.com/acoustid/chromaprint/releases/download/v1.6.1/chromaprint-fpcalc-1.6.1-macos-universal.tar.gz
+          echo "240aeb5a8c8205af458e3625cb7487b826b711a999e491ef00111f3cebd76f00  fpcalc.tgz" | shasum -a 256 -c -
           tar xzf fpcalc.tgz --strip-components=1
           chmod +x fpcalc
           # binaire universel (Intel + Apple Silicon) : l'appli est arm64, un
@@ -137,9 +150,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.version.outputs.tag }}
         run: |
+          # sommes de contrôle publiées avec la release (audit sécurité S5)
+          (cd dist && sha256sum windows/DJHelper-windows.zip macos/DJHelper-macos.zip \
+            | sed 's#  [a-z]*/#  #' > SHA256SUMS && cat SHA256SUMS)
           gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "$TAG" --notes "DJ Helper $TAG" \
-            dist/windows/DJHelper-windows.zip dist/macos/DJHelper-macos.zip
+            --title "$TAG" --notes "DJ Helper $TAG — vérification : sha256sum -c SHA256SUMS" \
+            dist/windows/DJHelper-windows.zip dist/macos/DJHelper-macos.zip dist/SHA256SUMS
 
   cleanup:
     # Ne garder que les 3 dernières releases : supprime les plus anciennes (release + tag)

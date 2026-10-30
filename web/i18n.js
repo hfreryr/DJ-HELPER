@@ -669,6 +669,7 @@ I18N_FRAGMENTS.push(
   ["empreinte impossible : ", "fingerprint failed: "], ["Analyse arrêtée : les ", "Analysis stopped: the first "],
   [" premiers fichiers ont tous échoué pour la même raison — ", " files all failed for the same reason — "],
   ["fpcalc ne fonctionne pas sur cet ordinateur : ", "fpcalc does not work on this computer: "],
+  ["ffmpeg ne fonctionne pas sur cet ordinateur : ", "ffmpeg does not work on this computer: "],
   ["Présent mais ne fonctionne pas — ", "Present but not working — "],
   [" Go libres", " GB free"], [" libres", " free"],
   ["Sauvegarde de collection.nml impossible : ", "Could not back up collection.nml: "],

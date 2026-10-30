@@ -140,6 +140,11 @@ async function refreshHome(){
     };
     setTool('cfg-ffmpeg', st.ffmpeg);
     setTool('cfg-fpcalc', st.fpcalc);
+    if (st.ffmpeg && st.ffmpeg_error){
+      const el = $('cfg-ffmpeg');
+      el.innerHTML = '⚠️ ' + esc(t('présent mais ne fonctionne pas :')) + ' ' + esc(st.ffmpeg_error);
+      el.classList.add('missing');
+    }
     if (st.fpcalc && st.fpcalc_error){
       // trouvé mais inutilisable (binaire incompatible, bloqué par le système…)
       const el = $('cfg-fpcalc');
@@ -2061,7 +2066,7 @@ $('rv-reveal').addEventListener('click', async () => {
   if (it && it.path){ try { await API.reveal_file(it.path); } catch (e){} }
 });
 
-const APP_VERSION = 'v1.5.17';
+const APP_VERSION = 'v1.5.18';
 
 // ---------- démarrage : attendre l'API pywebview ----------
 async function boot(){

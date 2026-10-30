@@ -28,7 +28,7 @@ def nml_hash(usb_root):
         nml = bk_find_collection_nml(usb_root)
         if not nml:
             return ""
-        h = hashlib.sha1()
+        h = hashlib.sha1(usedforsecurity=False)
         with open(nml, "rb") as f:
             for chunk in iter(lambda: f.read(65536), b""):
                 h.update(chunk)
@@ -495,15 +495,19 @@ def _tag_norm(s):
 def find_fpcalc():
     """Cherche le binaire fpcalc (Chromaprint) : PATH, dossier de l'app,
     emplacements usuels macOS (Homebrew) et Windows."""
-    p = shutil.which("fpcalc")
-    if p:
-        return p
+    # Le binaire EMBARQUÉ d'abord : c'est la version tenue à jour et vérifiée
+    # (somme SHA-256) au build ; un fpcalc ancien du PATH passait devant.
     import sys as _sys
     here = os.path.dirname(os.path.abspath(__file__))
     base = getattr(_sys, "_MEIPASS", here)
+    for c in (os.path.join(base, "fpcalc.exe"), os.path.join(base, "fpcalc"),
+              os.path.join(here, "fpcalc.exe"), os.path.join(here, "fpcalc")):
+        if os.path.isfile(c):
+            return c
+    p = shutil.which("fpcalc")
+    if p:
+        return p
     candidates = [
-        os.path.join(base, "fpcalc.exe"), os.path.join(base, "fpcalc"),
-        os.path.join(here, "fpcalc.exe"), os.path.join(here, "fpcalc"),
         "/usr/local/bin/fpcalc", "/opt/homebrew/bin/fpcalc", "/usr/bin/fpcalc",
         r"C:\Program Files\Chromaprint\fpcalc.exe",
         r"C:\chromaprint\fpcalc.exe",
@@ -544,37 +548,56 @@ def _fpcalc_run(fpcalc_path, args, timeout):
         return None, "fpcalc : réponse illisible"
 
 
-def fpcalc_selftest(fpcalc_path):
-    """'' si fpcalc fonctionne, sinon la raison. À appeler AVANT une analyse :
-    un fpcalc cassé faisait échouer silencieusement chaque fichier."""
-    import subprocess
+def tool_selftest(path, label):
+    """'' si l'outil externe (fpcalc, ffmpeg) démarre, sinon la raison lisible.
+    À appeler AVANT une analyse : un binaire cassé (architecture, Gatekeeper,
+    droits) faisait échouer silencieusement chaque fichier."""
+    import subprocess, errno as _errno
     try:
-        proc = subprocess.run([fpcalc_path, "-version"], capture_output=True,
+        proc = subprocess.run([path, "-version"], capture_output=True,
                               text=True, timeout=20, **_quiet_run())
-    except Exception as e:
-        _d, err = _fpcalc_run(fpcalc_path, ["-version"], 20)
-        return err or str(e)[:160]
+    except subprocess.TimeoutExpired:
+        return "%s ne répond pas (délai dépassé)" % label
+    except OSError as e:
+        if getattr(e, "errno", None) == 86 or "Bad CPU type" in str(e):
+            return "%s ne peut pas s'exécuter sur ce Mac (mauvaise architecture)" % label
+        if isinstance(e, PermissionError) or getattr(e, "errno", None) == _errno.EACCES:
+            return "%s n'a pas le droit de s'exécuter (bloqué par le système ?)" % label
+        return "%s ne démarre pas : %s" % (label, str(e)[:160])
     if proc.returncode == 0:
         return ""
     if proc.returncode < 0:
-        return ("fpcalc arrêté par le système (signal %d) — sur Mac, souvent "
-                "Gatekeeper qui bloque le binaire" % -proc.returncode)
+        return ("%s arrêté par le système (signal %d) — sur Mac, souvent "
+                "Gatekeeper qui bloque le binaire" % (label, -proc.returncode))
     msg = (proc.stderr or proc.stdout or "").strip()[:160] or "code %d" % proc.returncode
-    return msg if msg.lower().startswith("fpcalc") else "fpcalc : " + msg
+    return msg if msg.lower().startswith(label) else "%s : %s" % (label, msg)
 
 
-_FPCALC_HEALTH = {}
+def fpcalc_selftest(fpcalc_path):
+    return tool_selftest(fpcalc_path, "fpcalc")
+
+
+_TOOL_HEALTH = {}
+
+
+def _tool_health(path, label):
+    """Résultat du test de démarrage, mémorisé par chemin pour la session
+    (get_state est appelé souvent)."""
+    if not path:
+        return ""
+    if path not in _TOOL_HEALTH:
+        _TOOL_HEALTH[path] = tool_selftest(path, label)
+    return _TOOL_HEALTH[path]
 
 
 def fpcalc_health():
-    """Raison pour laquelle fpcalc ne marche pas ('' si OK ou absent). Testé
-    une fois par session (get_state est appelé souvent)."""
-    p = find_fpcalc()
-    if not p:
-        return ""
-    if p not in _FPCALC_HEALTH:
-        _FPCALC_HEALTH[p] = fpcalc_selftest(p)
-    return _FPCALC_HEALTH[p]
+    """Raison pour laquelle fpcalc ne marche pas ('' si OK ou absent)."""
+    return _tool_health(find_fpcalc(), "fpcalc")
+
+
+def ffmpeg_health():
+    """Raison pour laquelle ffmpeg ne marche pas ('' si OK ou absent)."""
+    return _tool_health(find_ffmpeg(), "ffmpeg")
 
 
 def acoustid_fingerprint_raw(filepath, fpcalc_path, timeout=120, want_error=False):
@@ -983,18 +1006,27 @@ def write_full_tags(path, meta, cover=None, cover_mime="image/jpeg", protect_ver
         return False, {"written": [], "skipped": [], "error": str(e)[:120]}
 
 
+# ffmpeg ne lit que des fichiers locaux : sans cette liste blanche, un faux
+# « .mp3 » contenant une liste de lecture HLS/concat peut lui faire ouvrir des
+# URL réseau ou d'autres fichiers (audit sécurité S2).
+FFMPEG_SAFE_INPUT = ["-protocol_whitelist", "file,pipe"]
+
+
 def find_ffmpeg():
     """Cherche ffmpeg : PATH, dossier de l'app, emplacements usuels macOS et Windows."""
     import shutil as _sh
     import sys as _sys
+    # Le binaire EMBARQUÉ d'abord (version tenue à jour, vérifiée au build).
+    here = os.path.dirname(os.path.abspath(__file__))
+    base = getattr(_sys, "_MEIPASS", here)
+    for c in (os.path.join(base, "ffmpeg.exe"), os.path.join(base, "ffmpeg"),
+              os.path.join(here, "ffmpeg.exe"), os.path.join(here, "ffmpeg")):
+        if os.path.isfile(c):
+            return c
     p = _sh.which("ffmpeg")
     if p:
         return p
-    here = os.path.dirname(os.path.abspath(__file__))
-    base = getattr(_sys, "_MEIPASS", here)
     candidates = [
-        os.path.join(base, "ffmpeg.exe"), os.path.join(base, "ffmpeg"),
-        os.path.join(here, "ffmpeg.exe"), os.path.join(here, "ffmpeg"),
         "/usr/local/bin/ffmpeg", "/opt/homebrew/bin/ffmpeg", "/usr/bin/ffmpeg",
         r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
         r"C:\ffmpeg\bin\ffmpeg.exe",
@@ -1019,10 +1051,10 @@ def deep_integrity_check(path, ffmpeg_path, timeout=300, check_clipping=False):
         if check_clipping:
             # PCM mono FLOAT : les échantillons hors-échelle survivent (en int16 ils
             # seraient écrasés à ±1.0, détruisant la preuve de corruption).
-            args = [ffmpeg_path, "-hide_banner", "-v", "error", "-i", str(path),
+            args = [ffmpeg_path, "-hide_banner", "-nostdin", "-v", "error"] + FFMPEG_SAFE_INPUT + ["-i", str(path),
                     "-f", "f32le", "-ac", "1", "-ar", str(SLIDING_SAMPLE_RATE), "-"]
         else:
-            args = [ffmpeg_path, "-hide_banner", "-v", "error", "-stats",
+            args = [ffmpeg_path, "-hide_banner", "-nostdin", "-v", "error", "-stats"] + FFMPEG_SAFE_INPUT + [
                     "-i", str(path), "-f", "null", "-"]
         result = subprocess.run(args, capture_output=True, timeout=timeout, **_quiet_run())
         stderr_text = result.stderr.decode("utf-8", errors="replace")
@@ -1266,10 +1298,8 @@ def bk_parse_traktor_playlist_tree(nml_path):
     """Parse l'arbre de playlists Traktor en préservant la hiérarchie de dossiers.
     Retourne (playlists, ok) où playlists = [{folders, name, tracks:[rel...]}].
     rel = chemin relatif au volume (ex. 'TRACK BASE/fichier.mp3')."""
-    import xml.etree.ElementTree as ET
     try:
-        tree = ET.parse(str(nml_path))
-        root = tree.getroot()
+        root = nml_parse_safe(nml_path)
     except Exception:
         return [], False
 
@@ -1338,6 +1368,22 @@ _LEGACY_BAK = [
 ]
 
 
+def djh_private_dir(*sub):
+    """~/.djhelper[/sub] créé avec des droits réservés à l'utilisateur (700) :
+    la clé AcoustID, les caches et le journal d'erreurs n'ont pas à être
+    lisibles par les autres comptes de la machine (audit sécurité S7)."""
+    base = os.path.join(os.path.expanduser("~"), ".djhelper")
+    d = os.path.join(base, *sub)
+    os.makedirs(d, exist_ok=True)
+    if os.name == "posix":
+        for p in {base, d}:
+            try:
+                os.chmod(p, 0o700)
+            except OSError:
+                pass
+    return d
+
+
 def json_save_atomic(path, data, **kw):
     """Écrit un JSON sans jamais laisser un fichier tronqué (coupure, clé
     retirée) : fichier temporaire + fsync + remplacement atomique."""
@@ -1376,6 +1422,21 @@ import threading as _threading
 NML_LOCK = _threading.RLock()
 
 
+_NML_DTD_RE = re.compile(r"<!\s*(DOCTYPE|ENTITY)", re.I)
+
+
+def nml_parse_safe(nml_path):
+    """Analyse collection.nml en refusant toute déclaration DOCTYPE/ENTITY :
+    Traktor n'en écrit jamais, et c'est le vecteur des bombes XML (« billion
+    laughs », audit sécurité S8). Renvoie la racine ; lève ValueError sinon."""
+    import xml.etree.ElementTree as ET
+    with open(nml_path, "rb") as f:
+        head = f.read(65536)
+    if _NML_DTD_RE.search(head.decode("utf-8", "replace")):
+        raise ValueError("collection.nml contient une déclaration DOCTYPE/ENTITY : refusé")
+    return ET.parse(str(nml_path)).getroot()
+
+
 def nml_read(nml_path):
     """Lit collection.nml sans toucher aux fins de ligne (newline="")."""
     with open(nml_path, encoding="utf-8", newline="") as f:
@@ -1388,6 +1449,8 @@ def nml_write_atomic(nml_path, text):
     coupure (clé débranchée, crash) laisse l'ancien fichier intact, jamais un
     fichier tronqué. Lève une exception si le texte n'est pas du XML valide."""
     import xml.etree.ElementTree as ET
+    if _NML_DTD_RE.search(text[:65536]):
+        raise ValueError("collection.nml contient une déclaration DOCTYPE/ENTITY : refusé")
     ET.fromstring(text.encode("utf-8"))          # refuse d'écrire un nml cassé
     tmp = nml_path + ".djh_tmp"
     try:
@@ -1763,8 +1826,21 @@ def _enr_net_failed(e):
     _ENR_NET.fails = getattr(_ENR_NET, "fails", 0) + 1
 
 
+def _https_only(url):
+    """Les URL de l'enrichissement viennent en partie de réponses distantes
+    (Bandcamp, SoundCloud) : seul https:// est accepté — jamais file://, ftp://
+    ou une adresse construite par le serveur distant."""
+    if not str(url).lower().startswith("https://"):
+        raise ValueError("URL refusée (https uniquement) : %s" % str(url)[:80])
+    return url
+
+
 def _enr_getj(url, timeout=14):
     import json, urllib.request
+    try:
+        _https_only(url)
+    except ValueError:
+        return None
     try:
         req = urllib.request.Request(url, headers=_ENR_UA_JSON)
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
@@ -1779,6 +1855,9 @@ def _enr_getj(url, timeout=14):
 def _enr_geth(url, timeout=18):
     import urllib.request
     try:
+        _https_only(url)
+    except ValueError:
+        return None
         req = urllib.request.Request(url, headers=_ENR_UA_HTML)
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
             return r.read().decode("utf-8", "ignore")
@@ -2192,6 +2271,11 @@ class Core:
         self._audiofp_cache = {}
         self._integ_cache = {}
         self._last_dup_groups = []
+        try:
+            djh_private_dir()          # resserre aussi les droits d'un dossier existant
+            self._tighten_private_files()
+        except OSError:
+            pass
         self._load_config()
         self._load_scan_cache()
         self._load_acoustid_cache()
@@ -2199,6 +2283,20 @@ class Core:
         self._load_audiofp_cache()
         self._load_integ_cache()
         self._load_backup_log()
+
+    @staticmethod
+    def _tighten_private_files():
+        """Fichiers déjà créés par une version antérieure : droits 600."""
+        if os.name != "posix":
+            return
+        base = os.path.join(os.path.expanduser("~"), ".djhelper")
+        for fn in os.listdir(base):
+            p = os.path.join(base, fn)
+            if os.path.isfile(p):
+                try:
+                    os.chmod(p, 0o600)
+                except OSError:
+                    pass
 
     # ----- état / config -----
     def _config_path(self):
@@ -2425,15 +2523,18 @@ class Core:
                 else:
                     return {"ok": False, "error": "Introuvable : " + path}
             elif sys.platform.startswith("win"):
+                # chemin absolu : un « explorer.exe » posé dans un dossier du
+                # PATH ne peut pas être lancé à la place (audit sécurité S11)
+                explorer = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "explorer.exe")
                 if exists:
-                    subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
+                    subprocess.Popen([explorer, "/select,", os.path.normpath(path)])
                 elif os.path.isdir(folder):
-                    subprocess.Popen(["explorer", os.path.normpath(folder)])
+                    subprocess.Popen([explorer, os.path.normpath(folder)])
                 else:
                     return {"ok": False, "error": "Introuvable : " + path}
             else:
                 target = folder if os.path.isdir(folder) else path
-                subprocess.Popen(["xdg-open", target])
+                subprocess.Popen([shutil.which("xdg-open") or "/usr/bin/xdg-open", target])
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)[:150]}
@@ -2460,7 +2561,11 @@ class Core:
             items.append({"label": "Bibliothèque indexée", "level": "warning",
                           "detail": "Pas encore scannée", "nav": "home"})
         ff = find_ffmpeg()
-        if ff:
+        ff_err = ffmpeg_health() if ff else ""
+        if ff and ff_err:
+            items.append({"label": "ffmpeg", "level": "warning",
+                          "detail": "Présent mais ne fonctionne pas — " + ff_err, "nav": "home"})
+        elif ff:
             items.append({"label": "ffmpeg", "level": "ok", "detail": ff, "nav": "home"})
         else:
             items.append({"label": "ffmpeg", "level": "warning",
@@ -2567,7 +2672,7 @@ class Core:
             for pl in sorted(playlists, key=lambda p: p.get("name", "")):
                 parts.append(pl.get("name", ""))
                 parts.extend(pl.get("tracks", []))
-            h = hashlib.sha1("\n".join(parts).encode("utf-8", "replace")).hexdigest()
+            h = hashlib.sha1("\n".join(parts).encode("utf-8", "replace"), usedforsecurity=False).hexdigest()
             self._ptree_cache = (key, h)
             return h
         except Exception:
@@ -2691,6 +2796,7 @@ class Core:
             "fpcalc": find_fpcalc() or "",
             "fpcalc_error": fpcalc_health(),
             "ffmpeg": find_ffmpeg() or "",
+            "ffmpeg_error": ffmpeg_health(),
             "free": free,
             "total": total,
             "count": len(self.tracks),
@@ -3408,6 +3514,10 @@ class Core:
                 return {"ok": False,
                         "error": "ffmpeg introuvable — installe-le depuis la carte Configuration "
                                  "(accueil) pour l'analyse approfondie.", "total": 0}
+            ff_err = ffmpeg_health()
+            if ff_err:
+                return {"ok": False, "total": 0,
+                        "error": "ffmpeg ne fonctionne pas sur cet ordinateur : " + ff_err}
             self._integ_ffmpeg = ff
             try:
                 import numpy  # noqa: F401
@@ -4995,17 +5105,21 @@ class Core:
                             "artist_genres.json")
 
     def _review_resolve_path(self, key):
-        """Clé nml dé-échappée -> chemin absolu du fichier audio (ou '')."""
+        """Clé nml dé-échappée -> chemin absolu du fichier audio (ou '').
+        Le chemin renvoyé reste TOUJOURS sous la racine de la clé ou le dossier
+        audio : une clé forgée (« VOL/:../:etc/:… ») dans DJHELPER_REVIEW.json ou
+        collection.nml ne peut ni faire servir ni faire retaguer un fichier
+        extérieur (audit sécurité S3)."""
         try:
             parts = [p for p in key.split("/:") if p]
-            if len(parts) < 2:
+            if len(parts) < 2 or any(p in ("..", ".") for p in parts):
                 return ""
             rel = os.path.join(*parts[1:])          # sans le VOLUME
             if self.usb_root:
                 mount, _v = usb_mount_and_volume(self.usb_root)
                 for base in (mount, self.usb_root):
                     cand = os.path.join(base, rel)
-                    if os.path.isfile(cand):
+                    if os.path.isfile(cand) and path_inside(cand, base):
                         return cand
             if self.music_folder:
                 # le DIR nml inclut souvent le dossier musique lui-même
@@ -5015,7 +5129,7 @@ class Core:
                     cand = os.path.join(self.music_folder, *sub[1:])
                 else:
                     cand = os.path.join(self.music_folder, *sub)
-                if os.path.isfile(cand):
+                if os.path.isfile(cand) and path_inside(cand, self.music_folder):
                     return cand
                 # dernier recours : index par nom de fichier, construit UNE
                 # fois. Seulement si le nom est UNIQUE : deux « Intro.mp3 »
@@ -5031,7 +5145,8 @@ class Core:
                     except Exception:
                         pass
                     self._rv_name_index = idx
-                return idx.get(path_key(parts[-1]), "")
+                hit = idx.get(path_key(parts[-1]), "")
+                return hit if hit and path_inside(hit, self.music_folder) else ""
         except Exception:
             pass
         return ""
@@ -5143,8 +5258,13 @@ class Core:
         """Démarre (une fois) le serveur audio local ; renvoie 'http://127.0.0.1:port'."""
         if getattr(self, "_rv_srv", None):
             return self._rv_base
-        import http.server, socketserver, threading, urllib.parse
+        import http.server, socketserver, threading, urllib.parse, secrets, hmac
         core = self
+        # Jeton secret de session dans chaque URL : sans lui, n'importe quelle
+        # page web ouverte dans un navigateur de la machine (ou un autre compte)
+        # pouvait lire les morceaux en énumérant /a/0, /a/1… (audit sécurité S4).
+        token = secrets.token_urlsafe(24)
+        prefix = "/t/%s/a/" % token
 
         class H(http.server.BaseHTTPRequestHandler):
             def log_message(self, *a):
@@ -5153,9 +5273,10 @@ class Core:
             def do_GET(self):
                 try:
                     q = urllib.parse.urlparse(self.path)
-                    if not q.path.startswith("/a/"):
+                    head = q.path[:len(prefix)]
+                    if not hmac.compare_digest(head.encode(), prefix.encode()):
                         self.send_error(404); return
-                    idx = int(q.path[3:])
+                    idx = int(q.path[len(prefix):])
                     paths = getattr(core, "_rv_audio_paths", {})
                     p = paths.get(idx, "")
                     if not p or not os.path.isfile(p):
@@ -5220,29 +5341,32 @@ class Core:
         srv = Srv(("127.0.0.1", 0), H)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self._rv_srv = srv
-        self._rv_base = "http://127.0.0.1:%d" % srv.server_address[1]
+        self._rv_base = "http://127.0.0.1:%d/t/%s" % (srv.server_address[1], token)
         return self._rv_base
 
     def _rv_transcode_wav(self, path):
         """AIFF/ALAC & co -> WAV temporaire via ffmpeg (cache par mtime).
         Renvoie le chemin du WAV, ou '' si transcodage impossible."""
-        import hashlib, subprocess, tempfile
+        import hashlib, subprocess
         ff = find_ffmpeg()
-        if not ff:
+        if not ff or ffmpeg_health():
             return ""
         try:
             tag = hashlib.sha1(("%s|%s" % (path, os.path.getmtime(path)))
-                               .encode("utf-8", "ignore")).hexdigest()[:20]
+                               .encode("utf-8", "ignore"), usedforsecurity=False).hexdigest()[:20]
         except Exception:
             return ""
-        out = os.path.join(tempfile.gettempdir(), "djhelper_tc_%s.wav" % tag)
+        # cache privé (~/.djhelper/cache, droits 700) : un nom prévisible dans
+        # le /tmp partagé pouvait être pré-créé en lien symbolique par un autre
+        # compte, et « ffmpeg -y » aurait écrasé sa cible
+        out = os.path.join(djh_private_dir("cache"), "tc_%s.wav" % tag)
         if os.path.isfile(out) and os.path.getsize(out) > 44:
             return out
         try:
             kw = {}
             if os.name == "nt":
                 kw["creationflags"] = 0x08000000        # CREATE_NO_WINDOW
-            r = subprocess.run([ff, "-y", "-v", "error", "-i", path,
+            r = subprocess.run([ff, "-y", "-nostdin", "-v", "error"] + FFMPEG_SAFE_INPUT + ["-i", path,
                                 "-map", "0:a:0", "-c:a", "pcm_s16le", out],
                                capture_output=True, timeout=120, **kw)
             if r.returncode == 0 and os.path.isfile(out) \
@@ -5269,13 +5393,12 @@ class Core:
     def _review_scan_impl(self):
         """Scan natif : lit collection.nml et liste ce qui doit être corrigé.
         Fusionne les propositions du fichier DJHELPER_REVIEW.json s'il existe."""
-        import xml.etree.ElementTree as ET
         nml_path = self._review_nml_path()
         if not nml_path:
             return {"ok": False,
                     "error": "collection.nml introuvable — configure la racine de ta clé sur l'accueil"}
         try:
-            root = ET.parse(nml_path).getroot()
+            root = nml_parse_safe(nml_path)
         except Exception as e:
             return {"ok": False, "error": "lecture de collection.nml : %s" % str(e)[:90]}
         coll = root.find("COLLECTION")

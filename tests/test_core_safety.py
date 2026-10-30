@@ -382,3 +382,66 @@ def test_acoustid_stops_after_identical_failures(tmp_path, monkeypatch):
     st = c.acoustid_step(12)
     assert st["finished"] and not st["result"]["ok"]
     assert "decoder broken" in st["result"]["error"]
+
+
+# --------------------------------------------------------------- audit sécurité lot 1
+def test_review_path_cannot_escape_library(tmp_path):
+    usb = tmp_path / "KEY"
+    _touch(str(usb / "Music" / "a.mp3"))
+    _touch(str(tmp_path / "secret.txt"))
+    c = _bare_core(usb_root=str(usb), music_folder=str(usb / "Music"))
+    assert c._review_resolve_path("KEY/:Music/:a.mp3").endswith("a.mp3")
+    assert c._review_resolve_path("KEY/:../:secret.txt") == ""
+    assert c._review_resolve_path("KEY/:Music/:../:../:secret.txt") == ""
+    # lien symbolique qui sort de la bibliothèque
+    os.symlink(str(tmp_path / "secret.txt"), str(usb / "Music" / "lien.mp3"))
+    assert c._review_resolve_path("KEY/:Music/:lien.mp3") == ""
+
+
+def test_audio_server_requires_session_token(tmp_path):
+    import urllib.request, urllib.error
+    f = tmp_path / "a.mp3"
+    f.write_bytes(b"ID3" + b"x" * 500)
+    c = _bare_core()
+    base = c._review_audio_server()
+    c._rv_audio_paths = {0: str(f)}
+    assert "/t/" in base
+    with urllib.request.urlopen(base + "/a/0", timeout=5) as r:
+        assert r.read()[:3] == b"ID3"
+    port_root = base.split("/t/")[0]
+    for bad in ("/a/0", "/t/devine/a/0", base.split(port_root)[1][:-3] + "/a/0"):
+        with pytest.raises(urllib.error.HTTPError):
+            urllib.request.urlopen(port_root + bad, timeout=5)
+    c._rv_srv.shutdown()
+
+
+def test_nml_with_doctype_is_refused(tmp_path):
+    p = tmp_path / "collection.nml"
+    p.write_text('<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]><NML>&a;</NML>', encoding="utf-8")
+    with pytest.raises(ValueError):
+        core.nml_parse_safe(str(p))
+    assert core.bk_parse_traktor_playlist_tree(str(p)) == ([], False)
+    with pytest.raises(ValueError):
+        core.nml_write_atomic(str(p), '<!DOCTYPE x><NML/>')
+
+
+def test_private_dir_permissions(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    d = core.djh_private_dir("cache")
+    assert oct(os.stat(d).st_mode & 0o777) == "0o700"
+    assert oct(os.stat(os.path.dirname(d)).st_mode & 0o777) == "0o700"
+    p = os.path.join(os.path.dirname(d), "config.json")
+    core.json_save_atomic(p, {"acoustid_key": "x"})
+    assert oct(os.stat(p).st_mode & 0o777) == "0o600"
+
+
+def test_ffmpeg_selftest_and_safe_args(tmp_path):
+    bad = _fake_fpcalc(tmp_path, 'kill -9 $$')
+    assert "arrêté par le système" in core.tool_selftest(bad, "ffmpeg")
+    assert core.FFMPEG_SAFE_INPUT == ["-protocol_whitelist", "file,pipe"]
+
+
+def test_enrichment_refuses_non_https_urls():
+    assert core._enr_geth("file:///etc/passwd") is None
+    assert core._enr_getj("file:///etc/passwd") is None
+    assert core._enr_geth("http://example.com") is None

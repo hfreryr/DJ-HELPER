@@ -352,7 +352,8 @@ def _guard(fn):
                 if os.path.isfile(p) and os.path.getsize(p) > 512 * 1024:
                     os.replace(p, p + ".1")
                 import datetime
-                with open(p, "a", encoding="utf-8") as f:
+                fd = os.open(p, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+                with os.fdopen(fd, "a", encoding="utf-8") as f:
                     f.write("== %s %s\n%s\n" % (datetime.datetime.now().isoformat(timespec="seconds"),
                                                 fn.__name__, tb))
             except Exception:
